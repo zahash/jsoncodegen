@@ -20,7 +20,7 @@ JSONCodeGen is a versatile tool designed to convert JSON files into code for var
 
 ## 🚀 Installation
 
-To use JSONCodeGen, download the binary executable for your platform from the Releases page on GitHub. Place the executable in your desired directory and ensure it's included in your system's PATH environment variable.
+To use JSONCodeGen, download the binary executable for your platform from the [Releases](https://github.com/zahash/jsoncodegen/releases) page on GitHub. Place the executable in your desired directory and ensure it's included in your system's PATH environment variable.
 
 ## 🧑‍💻 Usage
 

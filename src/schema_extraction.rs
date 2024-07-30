@@ -71,21 +71,8 @@ fn determine_type(value: Value, name: String, structs: &mut Vec<Structure>) -> F
         Value::String(_) => FieldType::String,
         Value::Array(arr) => FieldType::Array(Box::new(process_array(arr, name, structs))),
         Value::Object(nested_obj) => {
-            let nested_obj_name = pascal_case(&name);
-            process_object(nested_obj, nested_obj_name.clone(), structs);
-            FieldType::Object(nested_obj_name)
+            process_object(nested_obj, name.clone(), structs);
+            FieldType::Object(name.clone())
         }
     }
-}
-
-fn pascal_case(text: &str) -> String {
-    text.into()
-}
-
-fn camel_case(text: &str) -> String {
-    text.into()
-}
-
-fn snake_case(text: &str) -> String {
-    text.into()
 }

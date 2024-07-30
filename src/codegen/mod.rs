@@ -1,3 +1,3 @@
 mod java;
 
-pub use java::java;
+pub use java::{java, JavaOpts};

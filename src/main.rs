@@ -1,6 +1,7 @@
 use std::{fs::File, io::BufReader};
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
+use codegen::JavaOpts;
 use serde_json::Value;
 
 mod codegen;
@@ -11,6 +12,14 @@ struct JSONCodeGen {
     /// json filepath
     #[arg(short, long)]
     filepath: String,
+
+    #[command(subcommand)]
+    lang: LangOpts,
+}
+
+#[derive(Subcommand, Debug)]
+enum LangOpts {
+    Java(JavaOpts),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -22,7 +31,10 @@ fn main() -> anyhow::Result<()> {
     let json: Value = serde_json::from_reader(reader)?;
     let schema = schema_extraction::process(json);
     let mut stdout = std::io::stdout().lock();
-    codegen::java(&schema, &mut stdout)?;
+
+    match args.lang {
+        LangOpts::Java(opts) => codegen::java(&schema, opts, &mut stdout)?,
+    }
 
     Ok(())
 }

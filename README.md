@@ -1,4 +1,3 @@
-
 <div align="center">
 
 <pre>
@@ -56,7 +55,36 @@ Prepare a JSON file containing the data structure you want to convert into code.
 Run the JSONCodeGen executable in the same directory as your JSON file or specify the path to the file. You can specify the language subcommand (like java, python, cpp) along with language-specific options. use --help to see all available options.
 
 ```sh
-jsoncodegen --filepath sample.json java
+jsoncodegen --filepath sample.json java --attribute-access-modifier private --getters --setters
+```
+
+this is the output
+
+```java
+public class books {
+    private  String author;
+    private  List<String> genres;
+    private  String title;
+    public String getauthor() { return author; }
+    public List<String> getgenres() { return genres; }
+    public String gettitle() { return title; }
+    public void setauthor(String author) { this.author = author; }
+    public void setgenres(List<String> genres) { this.genres = genres; }
+    public void settitle(String title) { this.title = title; }
+}
+public class library {
+    private  List<books> books;
+    private  String name;
+    public List<books> getbooks() { return books; }
+    public String getname() { return name; }
+    public void setbooks(List<books> books) { this.books = books; }
+    public void setname(String name) { this.name = name; }
+}
+public class Root {
+    private  library library;
+    public library getlibrary() { return library; }
+    public void setlibrary(library library) { this.library = library; }
+}
 ```
 
 ## 🌟 Connect with Us

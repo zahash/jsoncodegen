@@ -69,8 +69,8 @@ pub fn java<W: Write>(schema: &[Structure], opts: JavaOpts, out: &mut W) -> Resu
                 let java_type = field_type_to_java_type(&field.type_);
                 writeln!(
                     out,
-                    "    public {} get{}() {{ return {}; }}",
-                    java_type, &field.name, &field.name
+                    "    @JsonProperty(\"{}\") public {} get{}() {{ return {}; }}",
+                    &field.name, java_type, &field.name, &field.name
                 )?;
             }
         }
@@ -80,8 +80,8 @@ pub fn java<W: Write>(schema: &[Structure], opts: JavaOpts, out: &mut W) -> Resu
                 let java_type = field_type_to_java_type(&field.type_);
                 writeln!(
                     out,
-                    "    public void set{}({} {}) {{ this.{} = {}; }}",
-                    &field.name, java_type, &field.name, &field.name, &field.name
+                    "    @JsonProperty(\"{}\") public void set{}({} {}) {{ this.{} = {}; }}",
+                    &field.name, &field.name, java_type, &field.name, &field.name, &field.name
                 )?;
             }
         }
@@ -95,7 +95,7 @@ pub fn java<W: Write>(schema: &[Structure], opts: JavaOpts, out: &mut W) -> Resu
 fn field_type_to_java_type(field_type: &FieldType) -> String {
     match field_type {
         FieldType::String => "String".into(),
-        FieldType::Integer => "Integer".into(),
+        FieldType::Integer => "Long".into(),
         FieldType::Float => "Double".into(),
         FieldType::Boolean => "Boolean".into(),
         FieldType::Unknown => "Object".into(),

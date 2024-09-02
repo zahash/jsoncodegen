@@ -1,4 +1,3 @@
-use crate::schema_extraction::{FieldType, Structure};
 use clap::{Parser, ValueEnum};
 use std::io::{Error, Write};
 
@@ -40,66 +39,76 @@ impl ToString for JavaAccessModifier {
     }
 }
 
-pub fn java<W: Write>(schema: &[Structure], opts: JavaOpts, out: &mut W) -> Result<(), Error> {
-    for class in schema {
+pub fn java<W: Write>(schema: Structure, opts: &JavaOpts, out: &mut W) -> Result<(), Error> {
+    writeln!(
+        out,
+        "{} class {} {{",
+        opts.class_access_modifier.to_string(),
+        schema.name
+    )?;
+
+    for field in schema.fields {
+        let java_type = match field.type_ {
+            FieldType::String => "String".into(),
+            FieldType::Integer => "Long".into(),
+            FieldType::Float => "Double".into(),
+            FieldType::Boolean => "Boolean".into(),
+            FieldType::Unknown => "Object".into(),
+            FieldType::Object(obj) => {
+                let obj_name = obj.name.clone();
+                java(obj, &opts, out)?;
+                obj_name
+            }
+            FieldType::Array(types) => {
+                format!("List<>")
+            }
+        };
         writeln!(
             out,
-            "{} class {} {{",
-            opts.class_access_modifier.to_string(),
-            class.name
+            "    {} {} {} {};",
+            opts.attribute_access_modifier.to_string(),
+            match opts.final_attributes {
+                true => "final",
+                false => "",
+            },
+            java_type,
+            field.name
         )?;
 
-        for field in &class.fields {
-            let java_type = field_type_to_java_type(&field.type_);
+        if opts.getters {
             writeln!(
                 out,
-                "    {} {} {} {};",
-                opts.attribute_access_modifier.to_string(),
-                match opts.final_attributes {
-                    true => "final",
-                    false => "",
-                },
-                java_type,
-                field.name
+                "    @JsonProperty(\"{}\") public {} get{}() {{ return {}; }}",
+                &field.name, java_type, &field.name, &field.name
             )?;
         }
 
-        if opts.getters {
-            for field in &class.fields {
-                let java_type = field_type_to_java_type(&field.type_);
-                writeln!(
-                    out,
-                    "    @JsonProperty(\"{}\") public {} get{}() {{ return {}; }}",
-                    &field.name, java_type, &field.name, &field.name
-                )?;
-            }
-        }
-
         if opts.setters {
-            for field in &class.fields {
-                let java_type = field_type_to_java_type(&field.type_);
-                writeln!(
-                    out,
-                    "    @JsonProperty(\"{}\") public void set{}({} {}) {{ this.{} = {}; }}",
-                    &field.name, &field.name, java_type, &field.name, &field.name, &field.name
-                )?;
-            }
+            writeln!(
+                out,
+                "    @JsonProperty(\"{}\") public void set{}({} {}) {{ this.{} = {}; }}",
+                &field.name, &field.name, java_type, &field.name, &field.name, &field.name
+            )?;
         }
-
-        writeln!(out, "}}")?;
     }
+
+    writeln!(out, "}}")?;
 
     Ok(())
 }
 
-fn field_type_to_java_type(field_type: &FieldType) -> String {
+fn field_type_to_java_type(field_type: FieldType) -> String {
     match field_type {
         FieldType::String => "String".into(),
         FieldType::Integer => "Long".into(),
         FieldType::Float => "Double".into(),
         FieldType::Boolean => "Boolean".into(),
         FieldType::Unknown => "Object".into(),
-        FieldType::Object(name) => name.into(),
-        FieldType::Array(type_) => format!("List<{}>", field_type_to_java_type(type_)),
+        FieldType::Object(obj) => name.into(),
+        FieldType::Array(types) => format!("List<{}>", unify_field_types(types)),
     }
+}
+
+fn unify_field_types(field_types: &[FieldType]) -> String {
+    todo!()
 }

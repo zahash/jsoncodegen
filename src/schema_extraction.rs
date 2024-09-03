@@ -267,28 +267,43 @@ impl FieldTypeAggregator {
 
             (FieldType::Optional(existing_ty), FieldType::Optional(new_ty)) => {
                 FieldType::Optional(Box::new(Self::merge(*existing_ty, *new_ty)))
-            } // (FieldType::Union(existing_types), new_type) => {
-              //     let mut merged_types = existing_types;
-              //     if !merged_types.contains(&new_type) {
-              //         merged_types.push(new_type);
-              //     }
-              //     FieldType::Union(merged_types)
-              // }
-              // (existing_type, FieldType::Union(new_types)) => {
-              //     let mut merged_types = new_types;
-              //     if !merged_types.contains(&existing_type) {
-              //         merged_types.push(existing_type);
-              //     }
-              //     FieldType::Union(merged_types)
-              // }
-              // (existing_type, new_type) => match existing_type == new_type {
-              //     true => existing_type,
-              //     false => FieldType::Union(vec![existing_type, new_type]),
-              // },
+            }
         }
     }
 
-    fn merge_obj_fields(existing_fields: Vec<Field>, new_fields: Vec<Field>) -> Vec<Field> {
+    fn merge_obj_fields(mut existing_fields: Vec<Field>, mut new_fields: Vec<Field>) -> Vec<Field> {
+        existing_fields = existing_fields
+            .into_iter()
+            .map(|mut existing_field| {
+                match new_fields
+                    .iter()
+                    .find(|new_field| existing_field.name == new_field.name)
+                {
+                    Some(_) => existing_field,
+                    None => {
+                        existing_field.ty = FieldType::Optional(Box::new(existing_field.ty));
+                        existing_field
+                    }
+                }
+            })
+            .collect();
+
+        new_fields = new_fields
+            .into_iter()
+            .map(|mut new_field| {
+                match existing_fields
+                    .iter()
+                    .find(|existing_field| existing_field.name == new_field.name)
+                {
+                    Some(_) => new_field,
+                    None => {
+                        new_field.ty = FieldType::Optional(Box::new(new_field.ty));
+                        new_field
+                    }
+                }
+            })
+            .collect();
+
         let mut merged_fields = existing_fields;
         for new_field in new_fields {
             match merged_fields.iter_mut().find(|f| f.name == new_field.name) {
@@ -344,19 +359,47 @@ mod tests {
     fn array() {
         let json = json(
             r#"
-                {
-                    "h": [
-                        "mixed", true, 
-                        ["nested", "arr"], ["arr2"], [123], [true, 27, [22.34]], 
-                        {"k1": "v1", "k3": true}, {"k1": 23, "k3": false}, {"k2": "v2", "k3": true}
-                    ]
-                }
+                [
+                    "mixed", true,
+                    ["nested", "arr"], ["arr2"], [123], [true, 27, [22.34]],
+                    {"k1": "v1", "k3": true}, {"k1": 23, "k3": false}, {"k2": "v2", "k3": true}
+                ]
                 "#,
         );
 
         let schema = extract(json);
+        // println!("{:#?}", schema);
 
-        println!("{:#?}", schema);
+        assert_eq!(
+            schema,
+            Schema::Array(FieldType::Union(vec![
+                FieldType::String,
+                FieldType::Boolean,
+                FieldType::Array(Box::new(FieldType::Union(vec![
+                    FieldType::String,
+                    FieldType::Integer,
+                    FieldType::Boolean,
+                    FieldType::Array(Box::new(FieldType::Float)),
+                ]))),
+                FieldType::Object(vec![
+                    Field {
+                        name: "k1".into(),
+                        ty: FieldType::Optional(Box::new(FieldType::Union(vec![
+                            FieldType::String,
+                            FieldType::Integer,
+                        ]))),
+                    },
+                    Field {
+                        name: "k3".into(),
+                        ty: FieldType::Boolean,
+                    },
+                    Field {
+                        name: "k2".into(),
+                        ty: FieldType::Optional(Box::new(FieldType::String)),
+                    },
+                ]),
+            ]))
+        );
     }
 
     #[test]
@@ -372,8 +415,8 @@ mod tests {
                     "f": {"n": "nested"},
                     "g": [1, 2],
                     "h": [
-                        "mixed", true, 
-                        ["nested", "arr"], ["arr2"], [123], [true, 27, [22.34]], 
+                        "mixed", true,
+                        ["nested", "arr"], ["arr2"], [123], [true, 27, [22.34]],
                         {"k1": "v1", "k3": true}, {"k1": 23, "k3": false}, {"k2": "v2", "k3": true}
                     ]
                 }
@@ -381,8 +424,7 @@ mod tests {
         );
 
         let schema = extract(json);
-
-        println!("{:#?}", schema);
+        // println!("{:#?}", schema);
 
         assert_eq!(
             schema,
@@ -425,8 +467,8 @@ mod tests {
                         FieldType::Boolean,
                         FieldType::Array(Box::new(FieldType::Union(vec![
                             FieldType::String,
-                            FieldType::Boolean,
                             FieldType::Integer,
+                            FieldType::Boolean,
                             FieldType::Array(Box::new(FieldType::Float))
                         ]))),
                         FieldType::Object(vec![
@@ -438,13 +480,13 @@ mod tests {
                                 ])))
                             },
                             Field {
+                                name: "k3".into(),
+                                ty: FieldType::Boolean
+                            },
+                            Field {
                                 name: "k2".into(),
                                 ty: FieldType::Optional(Box::new(FieldType::String))
                             },
-                            Field {
-                                name: "k3".into(),
-                                ty: FieldType::Boolean
-                            }
                         ])
                     ])))
                 },

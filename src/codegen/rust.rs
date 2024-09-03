@@ -1,4 +1,5 @@
-use crate::schema_extraction::{Field, FieldType, Schema};
+use super::CaseConverter;
+use crate::schema::{Field, FieldType, Schema};
 use std::io::{Error, Write};
 
 pub fn rust<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
@@ -16,14 +17,18 @@ pub fn rust<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
         }
     };
 
+    for def in ctx.aliases {
+        writeln!(out, "type {} = {};", def.name, def.ty)?;
+    }
+
     for def in ctx.structs {
         writeln!(out, "#[derive(Serialize, Deserialize, Debug)]")?;
         writeln!(out, "pub struct {} {{", def.name)?;
         for field in def.fields {
-            if field.original_name != field.field_name {
+            if field.original_name != field.variable_name {
                 writeln!(out, "    #[serde(rename = \"{}\")]", field.original_name)?;
             }
-            writeln!(out, "    pub {}: {},", field.field_name, field.type_name)?;
+            writeln!(out, "    pub {}: {},", field.variable_name, field.type_name)?;
         }
         writeln!(out, "}}")?;
     }
@@ -48,7 +53,7 @@ struct Context {
     aliases: Vec<AliasDef>,
     structs: Vec<StructDef>,
     enums: Vec<EnumDef>,
-    unknown_camel_case_counter: usize,
+    case_converter: CaseConverter,
 }
 
 struct StructDef {
@@ -68,7 +73,7 @@ struct AliasDef {
 
 struct StructField {
     original_name: String,
-    field_name: String,
+    variable_name: String,
     type_name: String,
 }
 
@@ -83,7 +88,7 @@ impl Context {
             aliases: vec![],
             structs: vec![],
             enums: vec![],
-            unknown_camel_case_counter: 0,
+            case_converter: CaseConverter::new(),
         }
     }
 
@@ -100,6 +105,10 @@ impl Context {
         for field in fields {
             def.fields.push(self.process_field(field));
         }
+
+        // TODO
+        // struct field_name might have duplicates.
+        // eg: "123foo" and "fooあ" will both resolve to "foo"
 
         self.structs.push(def);
     }
@@ -121,44 +130,44 @@ impl Context {
     fn process_field(&mut self, field: Field) -> StructField {
         match field.ty {
             FieldType::String => StructField {
-                field_name: self.snake_case(&field.name),
+                variable_name: self.case_converter.snake_case(&field.name),
                 original_name: field.name,
                 type_name: "String".into(),
             },
             FieldType::Integer => StructField {
-                field_name: self.snake_case(&field.name),
+                variable_name: self.case_converter.snake_case(&field.name),
                 original_name: field.name,
                 type_name: "isize".into(),
             },
             FieldType::Float => StructField {
-                field_name: self.snake_case(&field.name),
+                variable_name: self.case_converter.snake_case(&field.name),
                 original_name: field.name,
                 type_name: "f64".into(),
             },
             FieldType::Boolean => StructField {
-                field_name: self.snake_case(&field.name),
+                variable_name: self.case_converter.snake_case(&field.name),
                 original_name: field.name,
                 type_name: "bool".into(),
             },
             FieldType::Unknown => StructField {
-                field_name: self.snake_case(&field.name),
+                variable_name: self.case_converter.snake_case(&field.name),
                 original_name: field.name,
                 type_name: "serde_json::Value".into(),
             },
             FieldType::Object(nested_fields) => {
-                let nested_struct_name = self.camel_case(&field.name);
+                let nested_struct_name = self.case_converter.pascal_case(&field.name);
                 self.add_struct(nested_struct_name.clone(), nested_fields);
                 StructField {
-                    field_name: self.snake_case(&field.name),
+                    variable_name: self.case_converter.snake_case(&field.name),
                     original_name: field.name,
                     type_name: nested_struct_name,
                 }
             }
             FieldType::Union(types) => {
-                let nested_enum_name = self.camel_case(&field.name);
+                let nested_enum_name = self.case_converter.pascal_case(&field.name);
                 self.add_enum(nested_enum_name.clone(), types);
                 StructField {
-                    field_name: self.snake_case(&field.name),
+                    variable_name: self.case_converter.snake_case(&field.name),
                     original_name: field.name,
                     type_name: nested_enum_name,
                 }
@@ -216,7 +225,6 @@ impl Context {
                 }
             }
             FieldType::Union(types) => {
-                // as
                 let struct_field = self.process_field(Field {
                     name: prefix + "Element",
                     ty: FieldType::Union(types),
@@ -250,38 +258,5 @@ impl Context {
                 }
             }
         }
-    }
-
-    fn camel_case(&mut self, text: &str) -> String {
-        let clean_text: String = text
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
-            .collect();
-
-        let mut words: Vec<String> = clean_text
-            .split(|c: char| c == '_' || c.is_whitespace())
-            .map(|word| {
-                let mut chars = word.chars();
-                let first_char = chars.next().unwrap_or_default().to_uppercase();
-                let rest: String = chars.collect();
-                format!("{}{}", first_char, rest)
-            })
-            .collect();
-
-        let result = words.concat();
-        match result.is_empty() {
-            true => self.unknown_camel_case(),
-            false => result,
-        }
-    }
-
-    fn snake_case(&mut self, text: &str) -> String {
-        text.into()
-    }
-
-    fn unknown_camel_case(&mut self) -> String {
-        let text = format!("Unknown{}", self.unknown_camel_case_counter);
-        self.unknown_camel_case_counter += 1;
-        text
     }
 }

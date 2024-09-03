@@ -74,84 +74,67 @@ impl FieldTypeAggregator {
             (FieldType::Boolean, FieldType::Boolean) => FieldType::Boolean,
             (FieldType::Unknown, FieldType::Unknown) => FieldType::Unknown,
 
-            (FieldType::String, FieldType::Integer) => {
+            (FieldType::String, FieldType::Integer) | (FieldType::Integer, FieldType::String) => {
                 FieldType::Union(vec![FieldType::String, FieldType::Integer])
             }
-            (FieldType::String, FieldType::Float) => {
+            (FieldType::String, FieldType::Float) | (FieldType::Float, FieldType::String) => {
                 FieldType::Union(vec![FieldType::String, FieldType::Float])
             }
-            (FieldType::String, FieldType::Boolean) => {
+            (FieldType::String, FieldType::Boolean) | (FieldType::Boolean, FieldType::String) => {
                 FieldType::Union(vec![FieldType::String, FieldType::Boolean])
             }
-            (FieldType::Integer, FieldType::String) => {
-                FieldType::Union(vec![FieldType::Integer, FieldType::String])
-            }
-            (FieldType::Integer, FieldType::Float) => {
+            (FieldType::Integer, FieldType::Float) | (FieldType::Float, FieldType::Integer) => {
                 FieldType::Union(vec![FieldType::Integer, FieldType::Float])
             }
-            (FieldType::Integer, FieldType::Boolean) => {
+            (FieldType::Integer, FieldType::Boolean) | (FieldType::Boolean, FieldType::Integer) => {
                 FieldType::Union(vec![FieldType::Integer, FieldType::Boolean])
             }
-            (FieldType::Float, FieldType::String) => {
-                FieldType::Union(vec![FieldType::Float, FieldType::String])
-            }
-            (FieldType::Float, FieldType::Integer) => {
-                FieldType::Union(vec![FieldType::Float, FieldType::Integer])
-            }
-            (FieldType::Float, FieldType::Boolean) => {
+            (FieldType::Float, FieldType::Boolean) | (FieldType::Boolean, FieldType::Float) => {
                 FieldType::Union(vec![FieldType::Float, FieldType::Boolean])
             }
-            (FieldType::Boolean, FieldType::String) => {
-                FieldType::Union(vec![FieldType::Boolean, FieldType::String])
-            }
-            (FieldType::Boolean, FieldType::Integer) => {
-                FieldType::Union(vec![FieldType::Boolean, FieldType::Integer])
-            }
-            (FieldType::Boolean, FieldType::Float) => {
-                FieldType::Union(vec![FieldType::Boolean, FieldType::Float])
-            }
 
-            (FieldType::String, FieldType::Unknown) => {
-                FieldType::Optional(Box::new(FieldType::String))
-            }
-            (FieldType::Integer, FieldType::Unknown) => {
-                FieldType::Optional(Box::new(FieldType::Integer))
-            }
-            (FieldType::Float, FieldType::Unknown) => {
-                FieldType::Optional(Box::new(FieldType::Float))
-            }
-            (FieldType::Boolean, FieldType::Unknown) => {
-                FieldType::Optional(Box::new(FieldType::Boolean))
-            }
-
-            (FieldType::String, FieldType::Object(fields)) => {
+            (FieldType::String, FieldType::Object(fields))
+            | (FieldType::Object(fields), FieldType::String) => {
                 FieldType::Union(vec![FieldType::String, FieldType::Object(fields)])
             }
-            (FieldType::Integer, FieldType::Object(fields)) => {
+            (FieldType::Integer, FieldType::Object(fields))
+            | (FieldType::Object(fields), FieldType::Integer) => {
                 FieldType::Union(vec![FieldType::Integer, FieldType::Object(fields)])
             }
-            (FieldType::Float, FieldType::Object(fields)) => {
+            (FieldType::Float, FieldType::Object(fields))
+            | (FieldType::Object(fields), FieldType::Float) => {
                 FieldType::Union(vec![FieldType::Float, FieldType::Object(fields)])
             }
-            (FieldType::Boolean, FieldType::Object(fields)) => {
+            (FieldType::Boolean, FieldType::Object(fields))
+            | (FieldType::Object(fields), FieldType::Boolean) => {
                 FieldType::Union(vec![FieldType::Boolean, FieldType::Object(fields)])
             }
 
-            (FieldType::String, FieldType::Union(mut tys)) => {
+            (FieldType::String, FieldType::Union(mut tys))
+            | (FieldType::Union(mut tys), FieldType::String) => {
                 if !tys.contains(&FieldType::String) {
                     tys.push(FieldType::String);
                 }
                 FieldType::Union(tys)
             }
-            (FieldType::Integer, FieldType::Union(mut tys)) => {
+            (FieldType::Integer, FieldType::Union(mut tys))
+            | (FieldType::Union(mut tys), FieldType::Integer) => {
                 if !tys.contains(&FieldType::Integer) {
                     tys.push(FieldType::Integer);
                 }
                 FieldType::Union(tys)
             }
-            (FieldType::Float, FieldType::Union(mut tys)) => {
+            (FieldType::Float, FieldType::Union(mut tys))
+            | (FieldType::Union(mut tys), FieldType::Float) => {
                 if !tys.contains(&FieldType::Float) {
                     tys.push(FieldType::Float);
+                }
+                FieldType::Union(tys)
+            }
+            (FieldType::Boolean, FieldType::Union(mut tys))
+            | (FieldType::Union(mut tys), FieldType::Boolean) => {
+                if !tys.contains(&FieldType::Boolean) {
+                    tys.push(FieldType::Boolean);
                 }
                 FieldType::Union(tys)
             }
@@ -165,54 +148,74 @@ impl FieldTypeAggregator {
             (FieldType::Float, FieldType::Array(ty)) => {
                 FieldType::Union(vec![FieldType::Float, FieldType::Array(ty)])
             }
+            (FieldType::Boolean, FieldType::Array(ty)) => {
+                FieldType::Union(vec![FieldType::Boolean, FieldType::Array(ty)])
+            }
 
-            (FieldType::String, FieldType::Optional(ty)) => {
+            (FieldType::String, FieldType::Optional(ty))
+            | (FieldType::Optional(ty), FieldType::String) => {
                 FieldType::Optional(Box::new(FieldType::Union(vec![FieldType::String, *ty])))
             }
-            (FieldType::Integer, FieldType::Optional(ty)) => {
+            (FieldType::Integer, FieldType::Optional(ty))
+            | (FieldType::Optional(ty), FieldType::Integer) => {
                 FieldType::Optional(Box::new(FieldType::Union(vec![FieldType::Integer, *ty])))
             }
-            (FieldType::Float, FieldType::Optional(ty)) => {
+            (FieldType::Float, FieldType::Optional(ty))
+            | (FieldType::Optional(ty), FieldType::Float) => {
                 FieldType::Optional(Box::new(FieldType::Union(vec![FieldType::Float, *ty])))
             }
-
-            (FieldType::Boolean, FieldType::Union(_)) => todo!(),
-            (FieldType::Boolean, FieldType::Array(_)) => todo!(),
-            (FieldType::Boolean, FieldType::Optional(_)) => todo!(),
-            (FieldType::Unknown, FieldType::String) => todo!(),
-            (FieldType::Unknown, FieldType::Integer) => todo!(),
-            (FieldType::Unknown, FieldType::Float) => todo!(),
-            (FieldType::Unknown, FieldType::Boolean) => todo!(),
-            (FieldType::Unknown, FieldType::Object(_)) => todo!(),
-            (FieldType::Unknown, FieldType::Union(_)) => todo!(),
-            (FieldType::Unknown, FieldType::Array(_)) => todo!(),
-            (FieldType::Unknown, FieldType::Optional(_)) => todo!(),
-            (FieldType::Object(_), FieldType::String) => todo!(),
-            (FieldType::Object(_), FieldType::Integer) => todo!(),
-            (FieldType::Object(_), FieldType::Float) => todo!(),
-            (FieldType::Object(_), FieldType::Boolean) => todo!(),
-            (FieldType::Object(_), FieldType::Unknown) => todo!(),
-
-            (FieldType::Object(existing_fields), FieldType::Object(new_fields)) => {
-                let mut merged_fields = existing_fields;
-                for new_field in new_fields {
-                    match merged_fields.iter_mut().find(|f| f.name == new_field.name) {
-                        Some(field) => field.ty = Self::merge(field.ty.clone(), new_field.ty),
-                        None => merged_fields.push(new_field),
-                    }
-                }
-                FieldType::Object(merged_fields)
+            (FieldType::Boolean, FieldType::Optional(ty))
+            | (FieldType::Optional(ty), FieldType::Boolean) => {
+                FieldType::Optional(Box::new(FieldType::Union(vec![FieldType::Boolean, *ty])))
+            }
+            (FieldType::Optional(ty), FieldType::Unknown)
+            | (FieldType::Unknown, FieldType::Optional(ty)) => FieldType::Optional(ty),
+            (ft, FieldType::Unknown) | (FieldType::Unknown, ft) => {
+                FieldType::Optional(Box::new(ft))
+            }
+            (FieldType::Object(fields), FieldType::Optional(ty))
+            | (FieldType::Optional(ty), FieldType::Object(fields)) => {
+                FieldType::Optional(Box::new(FieldType::Union(vec![
+                    FieldType::Object(fields),
+                    *ty,
+                ])))
             }
 
-            (FieldType::Object(_), FieldType::Union(_)) => todo!(),
-            (FieldType::Object(_), FieldType::Array(_)) => todo!(),
-            (FieldType::Object(_), FieldType::Optional(_)) => todo!(),
-            (FieldType::Union(_), FieldType::String) => todo!(),
-            (FieldType::Union(_), FieldType::Integer) => todo!(),
-            (FieldType::Union(_), FieldType::Float) => todo!(),
-            (FieldType::Union(_), FieldType::Boolean) => todo!(),
-            (FieldType::Union(_), FieldType::Unknown) => todo!(),
-            (FieldType::Union(_), FieldType::Object(_)) => todo!(),
+            (FieldType::Object(existing_fields), FieldType::Object(new_fields)) => {
+                FieldType::Object(Self::merge_obj_fields(existing_fields, new_fields))
+            }
+
+            (FieldType::Object(obj_fields), FieldType::Union(mut union_types))
+            | (FieldType::Union(mut union_types), FieldType::Object(obj_fields)) => {
+                match union_types
+                    .iter_mut()
+                    .filter_map(|ty| match ty {
+                        FieldType::Object(existing_obj_fields) => Some(existing_obj_fields),
+                        _ => None,
+                    })
+                    .next()
+                {
+                    Some(existing_obj_fields) => match obj_fields == *existing_obj_fields {
+                        true => FieldType::Union(union_types),
+                        false => {
+                            let merged_obj_fields =
+                                Self::merge_obj_fields(existing_obj_fields.clone(), obj_fields);
+                            *existing_obj_fields = merged_obj_fields;
+                            FieldType::Union(union_types)
+                        }
+                    },
+                    None => {
+                        union_types.push(FieldType::Object(obj_fields));
+                        FieldType::Union(union_types)
+                    }
+                }
+            }
+
+            (FieldType::Object(obj_fields), FieldType::Array(arr_ty))
+            | (FieldType::Array(arr_ty), FieldType::Object(obj_fields)) => FieldType::Union(vec![
+                FieldType::Object(obj_fields),
+                FieldType::Array(arr_ty),
+            ]),
 
             (FieldType::Union(existing_types), FieldType::Union(new_types)) => {
                 let mut merged_types = existing_types;
@@ -230,8 +233,6 @@ impl FieldTypeAggregator {
             (FieldType::Array(_), FieldType::Integer) => todo!(),
             (FieldType::Array(_), FieldType::Float) => todo!(),
             (FieldType::Array(_), FieldType::Boolean) => todo!(),
-            (FieldType::Array(_), FieldType::Unknown) => todo!(),
-            (FieldType::Array(_), FieldType::Object(_)) => todo!(),
             (FieldType::Array(_), FieldType::Union(_)) => todo!(),
 
             (FieldType::Array(existing_ele_type), FieldType::Array(new_ele_type)) => {
@@ -240,12 +241,6 @@ impl FieldTypeAggregator {
             }
 
             (FieldType::Array(_), FieldType::Optional(_)) => todo!(),
-            (FieldType::Optional(_), FieldType::String) => todo!(),
-            (FieldType::Optional(_), FieldType::Integer) => todo!(),
-            (FieldType::Optional(_), FieldType::Float) => todo!(),
-            (FieldType::Optional(_), FieldType::Boolean) => todo!(),
-            (FieldType::Optional(_), FieldType::Unknown) => todo!(),
-            (FieldType::Optional(_), FieldType::Object(_)) => todo!(),
             (FieldType::Optional(_), FieldType::Union(_)) => todo!(),
             (FieldType::Optional(_), FieldType::Array(_)) => todo!(),
             (FieldType::Optional(_), FieldType::Optional(_)) => todo!(),
@@ -268,6 +263,17 @@ impl FieldTypeAggregator {
             //     false => FieldType::Union(vec![existing_type, new_type]),
             // },
         }
+    }
+
+    fn merge_obj_fields(existing_fields: Vec<Field>, new_fields: Vec<Field>) -> Vec<Field> {
+        let mut merged_fields = existing_fields;
+        for new_field in new_fields {
+            match merged_fields.iter_mut().find(|f| f.name == new_field.name) {
+                Some(field) => field.ty = Self::merge(field.ty.clone(), new_field.ty),
+                None => merged_fields.push(new_field),
+            }
+        }
+        merged_fields
     }
 }
 

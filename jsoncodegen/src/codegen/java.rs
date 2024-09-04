@@ -1,7 +1,6 @@
+use super::CaseConverter;
 use crate::schema::{Field, FieldType, Schema};
 use std::io::{Error, Write};
-
-use super::CaseConverter;
 
 pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
     let mut ctx = Context::new();

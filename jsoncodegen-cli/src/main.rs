@@ -1,7 +1,5 @@
-mod codegen;
-mod schema;
-
 use clap::{Parser, Subcommand};
+use jsoncodegen::{codegen, schema};
 use serde_json::Value;
 use std::{fs::File, io::BufReader};
 

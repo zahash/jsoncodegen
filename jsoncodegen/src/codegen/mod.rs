@@ -4,18 +4,6 @@ mod rust;
 pub use java::java;
 pub use rust::rust;
 
-struct Iota {
-    n: usize,
-}
-
-impl Iota {
-    fn get(&mut self) -> usize {
-        let n = self.n;
-        self.n += 1;
-        n
-    }
-}
-
 struct CaseConverter {
     counter: usize,
 }

@@ -1,6 +1,5 @@
-use std::ops::Deref;
-
 use serde_json::{Map, Value};
+use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Schema {

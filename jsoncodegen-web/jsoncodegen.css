@@ -1,6 +1,8 @@
 :root {
     --dark: #05050a;
     --light: #cccccc;
+    --link-color: #4682b4;
+    --link-hover-color: #87ceeb;
 
     font-family: monospace, system-ui;
     font-size: 1.5em;
@@ -18,6 +20,25 @@ body {
 
 body>* {
     flex-shrink: 0;
+}
+
+a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+.textual-link:hover,
+.textual-link:focus {
+    color: var(--link-hover-color);
+    filter: drop-shadow(0 0 1px);
+}
+
+.textual-link::before {
+    content: '[';
+}
+
+.textual-link::after {
+    content: ']';
 }
 
 .header {

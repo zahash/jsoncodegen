@@ -17,6 +17,9 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
     };
 
     for class in ctx.classes {
+        writeln!(out, "// {}.java", class.name)?;
+        writeln!(out, "import com.fasterxml.jackson.annotation.*;")?;
+
         writeln!(out, "public class {} {{", class.name)?;
         for member_var in &class.vars {
             writeln!(
@@ -55,6 +58,12 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
     }
 
     for union in ctx.unions {
+        writeln!(out, "// {}.java", union.name)?;
+        writeln!(out, "import java.io.IOException")?;
+        writeln!(out, "import com.fasterxml.jackson.core.*;")?;
+        writeln!(out, "import com.fasterxml.jackson.databind.*;")?;
+        writeln!(out, "import com.fasterxml.jackson.databind.annotation.*;")?;
+
         writeln!(
             out,
             "@JsonSerialize(using = {}.Serializer.class)",
@@ -78,7 +87,7 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
         // Serializer
         writeln!(
             out,
-            "    static class Serializer extends JsonSerialize<{}> {{",
+            "    static class Serializer extends JsonSerializer<{}> {{",
             union.name
         )?;
         writeln!(out, "        @Override public void serialize({} value, JsonGenerator generator, SerializerProvider serializer) throws IOException {{", union.name)?;
@@ -127,6 +136,7 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
         writeln!(out, "            return value;")?;
         writeln!(out, "        }}")?;
         writeln!(out, "    }}")?;
+        writeln!(out, "}}")?;
     }
 
     Ok(())

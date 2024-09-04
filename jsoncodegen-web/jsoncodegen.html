@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSONCodeGen</title>
+    <link rel="stylesheet" href="jsoncodegen.css">
+
+</head>
+
+<body>
+    <div class="header">
+        <h2>JSON Code Generator</h2>
+        <div>
+            <label for="lang-select">Language: </label>
+            <select id="lang-select">
+                <option value="Java">Java</option>
+                <option value="Rust">Rust</option>
+            </select>
+            <button id="generate-btn">Generate</button>
+        </div>
+    </div>
+
+    <div class="main">
+        <textarea id="json-input" placeholder="Paste your JSON here"></textarea>
+        <textarea id="code-output" readonly placeholder="Generated Code"></textarea>
+    </div>
+
+    <script src="jsoncodegen.js" type="module"></script>
+</body>
+
+</html>

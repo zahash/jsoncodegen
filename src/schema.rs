@@ -164,19 +164,19 @@ impl FieldTypeAggregator {
             }
             (FieldType::String, FieldType::Optional(ty))
             | (FieldType::Optional(ty), FieldType::String) => {
-                FieldType::Optional(Box::new(FieldType::Union(vec![FieldType::String, *ty])))
+                FieldType::Optional(Box::new(Self::merge(FieldType::String, *ty)))
             }
             (FieldType::Integer, FieldType::Optional(ty))
             | (FieldType::Optional(ty), FieldType::Integer) => {
-                FieldType::Optional(Box::new(FieldType::Union(vec![FieldType::Integer, *ty])))
+                FieldType::Optional(Box::new(Self::merge(FieldType::Integer, *ty)))
             }
             (FieldType::Float, FieldType::Optional(ty))
             | (FieldType::Optional(ty), FieldType::Float) => {
-                FieldType::Optional(Box::new(FieldType::Union(vec![FieldType::Float, *ty])))
+                FieldType::Optional(Box::new(Self::merge(FieldType::Float, *ty)))
             }
             (FieldType::Boolean, FieldType::Optional(ty))
             | (FieldType::Optional(ty), FieldType::Boolean) => {
-                FieldType::Optional(Box::new(FieldType::Union(vec![FieldType::Boolean, *ty])))
+                FieldType::Optional(Box::new(Self::merge(FieldType::Boolean, *ty)))
             }
             (FieldType::Object(fields), FieldType::Optional(ty))
             | (FieldType::Optional(ty), FieldType::Object(fields)) => {
@@ -360,7 +360,7 @@ mod tests {
         let json = json(
             r#"
                 [
-                    "mixed", true,
+                    "mixed", null, true, 123, 123.23,
                     ["nested", "arr"], ["arr2"], [123], [true, 27, [22.34]],
                     {"k1": "v1", "k3": true}, {"k1": 23, "k3": false}, {"k2": "v2", "k3": true}
                 ]
@@ -368,37 +368,38 @@ mod tests {
         );
 
         let schema = extract(json);
-        // println!("{:#?}", schema);
 
         assert_eq!(
             schema,
-            Schema::Array(FieldType::Union(vec![
+            Schema::Array(FieldType::Optional(Box::new(FieldType::Union(vec![
                 FieldType::String,
                 FieldType::Boolean,
+                FieldType::Integer,
+                FieldType::Float,
                 FieldType::Array(Box::new(FieldType::Union(vec![
                     FieldType::String,
                     FieldType::Integer,
                     FieldType::Boolean,
-                    FieldType::Array(Box::new(FieldType::Float)),
+                    FieldType::Array(Box::new(FieldType::Float))
                 ]))),
                 FieldType::Object(vec![
                     Field {
                         name: "k1".into(),
                         ty: FieldType::Optional(Box::new(FieldType::Union(vec![
                             FieldType::String,
-                            FieldType::Integer,
-                        ]))),
+                            FieldType::Integer
+                        ])))
                     },
                     Field {
                         name: "k3".into(),
-                        ty: FieldType::Boolean,
+                        ty: FieldType::Boolean
                     },
                     Field {
                         name: "k2".into(),
-                        ty: FieldType::Optional(Box::new(FieldType::String)),
+                        ty: FieldType::Optional(Box::new(FieldType::String))
                     },
-                ]),
-            ]))
+                ])
+            ]))))
         );
     }
 
@@ -415,7 +416,7 @@ mod tests {
                     "f": {"n": "nested"},
                     "g": [1, 2],
                     "h": [
-                        "mixed", true,
+                        "mixed", null, true, 123, 123.23,
                         ["nested", "arr"], ["arr2"], [123], [true, 27, [22.34]],
                         {"k1": "v1", "k3": true}, {"k1": 23, "k3": false}, {"k2": "v2", "k3": true}
                     ]
@@ -424,7 +425,6 @@ mod tests {
         );
 
         let schema = extract(json);
-        // println!("{:#?}", schema);
 
         assert_eq!(
             schema,
@@ -462,33 +462,37 @@ mod tests {
                 },
                 Field {
                     name: "h".into(),
-                    ty: FieldType::Array(Box::new(FieldType::Union(vec![
-                        FieldType::String,
-                        FieldType::Boolean,
-                        FieldType::Array(Box::new(FieldType::Union(vec![
+                    ty: FieldType::Array(Box::new(FieldType::Optional(Box::new(
+                        FieldType::Union(vec![
                             FieldType::String,
-                            FieldType::Integer,
                             FieldType::Boolean,
-                            FieldType::Array(Box::new(FieldType::Float))
-                        ]))),
-                        FieldType::Object(vec![
-                            Field {
-                                name: "k1".into(),
-                                ty: FieldType::Optional(Box::new(FieldType::Union(vec![
-                                    FieldType::String,
-                                    FieldType::Integer
-                                ])))
-                            },
-                            Field {
-                                name: "k3".into(),
-                                ty: FieldType::Boolean
-                            },
-                            Field {
-                                name: "k2".into(),
-                                ty: FieldType::Optional(Box::new(FieldType::String))
-                            },
+                            FieldType::Integer,
+                            FieldType::Float,
+                            FieldType::Array(Box::new(FieldType::Union(vec![
+                                FieldType::String,
+                                FieldType::Integer,
+                                FieldType::Boolean,
+                                FieldType::Array(Box::new(FieldType::Float))
+                            ]))),
+                            FieldType::Object(vec![
+                                Field {
+                                    name: "k1".into(),
+                                    ty: FieldType::Optional(Box::new(FieldType::Union(vec![
+                                        FieldType::String,
+                                        FieldType::Integer
+                                    ])))
+                                },
+                                Field {
+                                    name: "k3".into(),
+                                    ty: FieldType::Boolean
+                                },
+                                Field {
+                                    name: "k2".into(),
+                                    ty: FieldType::Optional(Box::new(FieldType::String))
+                                },
+                            ])
                         ])
-                    ])))
+                    ))))
                 },
             ])
         );

@@ -21,9 +21,10 @@ impl CaseConverter {
 
         let words: Vec<String> = clean_text
             .split(|c: char| c == '_' || c.is_whitespace())
+            .filter(|word| !word.is_empty())
             .map(|word| {
                 let mut chars = word.chars();
-                let first_char = chars.next().unwrap_or_default().to_ascii_uppercase();
+                let first_char = chars.next().unwrap().to_ascii_uppercase();
                 let rest: String = chars.collect();
                 format!("{}{}", first_char, rest)
             })
@@ -44,9 +45,10 @@ impl CaseConverter {
 
         let mut words: Vec<String> = clean_text
             .split(|c: char| c == '_' || c.is_whitespace())
+            .filter(|word| !word.is_empty())
             .map(|word| {
                 let mut chars = word.chars();
-                let first_char = chars.next().unwrap_or_default().to_ascii_uppercase();
+                let first_char = chars.next().unwrap().to_ascii_uppercase();
                 let rest: String = chars.collect();
                 format!("{}{}", first_char, rest)
             })
@@ -54,7 +56,7 @@ impl CaseConverter {
 
         if let Some(first_word) = words.iter_mut().next() {
             let mut chars = first_word.chars();
-            let first_char = chars.next().unwrap_or_default().to_ascii_lowercase();
+            let first_char = chars.next().unwrap().to_ascii_lowercase();
             let rest: String = chars.collect();
             *first_word = format!("{}{}", first_char, rest);
         }
@@ -101,5 +103,20 @@ impl CaseConverter {
         let text = format!("unknown_{}", self.counter);
         self.counter += 1;
         text
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::CaseConverter;
+
+    #[test]
+    fn test() {
+        let mut case_converter = CaseConverter::new();
+        assert_eq!("Unknown0", case_converter.pascal_case("て"));
+        assert_eq!("unknown1", case_converter.camel_case("て"));
+        assert_eq!("unknown_2", case_converter.snake_case("て"));
     }
 }

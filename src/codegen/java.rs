@@ -227,7 +227,7 @@ impl Context {
                 let nested_class_name = self.case_converter.pascal_case(&field.name);
                 self.add_class(nested_class_name.clone(), nested_fields);
                 MemberVar {
-                    var_name: self.case_converter.snake_case(&field.name),
+                    var_name: self.case_converter.camel_case(&field.name),
                     original_name: field.name,
                     type_name: nested_class_name,
                 }
@@ -236,7 +236,7 @@ impl Context {
                 let nested_class_name = self.case_converter.pascal_case(&field.name);
                 self.add_union_class(nested_class_name.clone(), types);
                 MemberVar {
-                    var_name: self.case_converter.snake_case(&field.name),
+                    var_name: self.case_converter.camel_case(&field.name),
                     original_name: field.name,
                     type_name: nested_class_name,
                 }

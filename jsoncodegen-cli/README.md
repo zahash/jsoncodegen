@@ -8,59 +8,65 @@
 ╚█████╔╝███████║╚██████╔╝██║ ╚████║    ╚██████╗╚██████╔╝██████╔╝███████╗╚██████╔╝███████╗██║ ╚████║
  ╚════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝     ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝
 ---------------------------------------------------------------------------------------------------
-A library for converting JSON into code for multiple programming languages. Made with ❤️ using 🦀
+A tool for converting JSON files into code for multiple programming languages. Made with ❤️ using 🦀
 </pre>
 
-[![Crates.io](https://img.shields.io/crates/v/jsoncodegen.svg)](https://crates.io/crates/jsoncodegen)
+[![Crates.io](https://img.shields.io/crates/v/jcg.svg)](https://crates.io/crates/jcg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>
 
-JSONCodeGen is a library designed to convert JSON into code for various programming languages, facilitating the creation of classes, structs, or equivalent data structures for serialization and deserialization.
+JSONCodeGen is a versatile tool designed to convert JSON files into code for various programming languages, facilitating the creation of classes, structs, or equivalent data structures for serialization and deserialization.
+
+## 🚀 Installation
+
+To use JSONCodeGen, download the binary executable for your platform from the [Releases](https://github.com/zahash/jsoncodegen/releases) page on GitHub. Place the executable in your desired directory and ensure it's included in your system's PATH environment variable.
+
+( or )
+
+Install it using cargo
+
+```sh
+cargo install jcg
+```
 
 ## 🧑‍💻 Usage
 
-add the library to your `Cargo.toml` file
+### 1. Create a JSON File
 
-```toml
-jsoncodegen = "*"
-```
+Prepare a JSON file containing the data structure you want to convert into code. This JSON will be the source for generating the schema and corresponding code.
 
-extract schema and generate source code for any language
+#### Example JSON file
 
-```rust
-use jsoncodegen::{codegen, schema};
-
-fn main() {
-    let json: serde_json::Value = serde_json::from_str(
-        r#"
-        {
-            "library": {
-                "name": "City Library",
-                "books": [
-                {
-                    "title": "1984",
-                    "author": "George Orwell",
-                    "genres": ["Dystopian", "Political Fiction"]
-                },
-                {
-                    "title": "To Kill a Mockingbird",
-                    "author": "Harper Lee",
-                    "genres": ["Classic", "Historical Fiction"]
-                }
-                ]
-            }
-        }
-    "#,
-    ).unwrap();
-
-    let schema = schema::extract(json);
-    let mut stdout = std::io::stdout().lock();
-    codegen::java(schema, &mut stdout).unwrap();
+```json
+{
+  "library": {
+    "name": "City Library",
+    "books": [
+      {
+        "title": "1984",
+        "author": "George Orwell",
+        "genres": ["Dystopian", "Political Fiction"]
+      },
+      {
+        "title": "To Kill a Mockingbird",
+        "author": "Harper Lee",
+        "genres": ["Classic", "Historical Fiction"]
+      }
+    ]
+  }
 }
 ```
 
-### Output
+### 2. Run JSONCodeGen
+
+Run the JSONCodeGen executable in the same directory as your JSON file or specify the path to the file. You can specify the language subcommand (like java, python, cpp) along with language-specific options. use --help to see all available options.
+
+```sh
+jcg --filepath sample.json java
+```
+
+#### Output
 
 ```java
 // Books.java

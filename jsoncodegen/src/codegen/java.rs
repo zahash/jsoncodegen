@@ -58,7 +58,7 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
 
     for union in ctx.unions {
         writeln!(out, "// {}.java", union.name)?;
-        writeln!(out, "import java.io.IOException")?;
+        writeln!(out, "import java.io.IOException;")?;
         writeln!(out, "import com.fasterxml.jackson.core.*;")?;
         writeln!(out, "import com.fasterxml.jackson.databind.*;")?;
         writeln!(out, "import com.fasterxml.jackson.databind.annotation.*;")?;

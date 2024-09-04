@@ -9,11 +9,11 @@ pub fn rust<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
     match schema {
         Schema::Object(fields) => ctx.add_struct("Root".into(), fields),
         Schema::Array(ty) => {
-            ctx.process_field(Field {
+            let struct_field = ctx.process_field(Field {
                 name: "Item".into(),
                 ty,
             });
-            ctx.add_alias("Root".into(), "Vec<Item>".into());
+            ctx.add_alias("Root".into(), format!("Vec<{}>", struct_field.type_name));
         }
     };
 
@@ -242,7 +242,7 @@ impl Context {
                 });
 
                 EnumVariant {
-                    variant_name: struct_field.type_name.clone(),
+                    variant_name: self.case_converter.pascal_case(&struct_field.variable_name),
                     associated_type: struct_field.type_name,
                 }
             }

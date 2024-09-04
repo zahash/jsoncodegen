@@ -4,6 +4,18 @@ mod rust;
 pub use java::java;
 pub use rust::rust;
 
+struct Iota {
+    n: usize,
+}
+
+impl Iota {
+    fn get(&mut self) -> usize {
+        let n = self.n;
+        self.n += 1;
+        n
+    }
+}
+
 struct CaseConverter {
     counter: usize,
 }
@@ -13,6 +25,7 @@ impl CaseConverter {
         Self { counter: 0 }
     }
 
+    // TODO: PascalCase string must NOT start with a number
     fn pascal_case(&mut self, text: &str) -> String {
         let clean_text: String = text
             .chars()
@@ -37,6 +50,7 @@ impl CaseConverter {
         }
     }
 
+    // TODO: camelCase string must NOT start with a number
     fn camel_case(&mut self, text: &str) -> String {
         let clean_text: String = text
             .chars()
@@ -68,6 +82,7 @@ impl CaseConverter {
         }
     }
 
+    // TODO: snake_case string must NOT start with a number
     fn snake_case(&mut self, text: &str) -> String {
         let clean_text: String = text
             .chars()

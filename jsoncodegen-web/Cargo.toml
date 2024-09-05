@@ -10,6 +10,12 @@ repository = "https://github.com/zahash/jsoncodegen/jsoncodegen-web"
 [lib]
 crate-type = ["cdylib"]
 
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Enable Link Time Optimization (LTO)
+codegen-units = 1   # Forces the compiler to use a single code generation unit to improve optimizations
+panic = "abort"     # Remove panic support, reducing code size
+
 [dependencies]
 jsoncodegen = { version = "0.2.1" }
 serde_json = "1"

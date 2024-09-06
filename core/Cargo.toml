@@ -1,8 +1,8 @@
 [package]
 name = "jsoncodegen"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
-authors = ["Zahash <zahash.z@gmail.com>"]
+authors = ["zahash <zahash.z@gmail.com>"]
 description = "json code generation"
 license = "MIT"
 repository = "https://github.com/zahash/jsoncodegen/jsoncodegen"

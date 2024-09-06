@@ -1,14 +1,14 @@
 [package]
 name = "jcg"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
-authors = ["Zahash <zahash.z@gmail.com>"]
+authors = ["zahash <zahash.z@gmail.com>"]
 description = "json code generation cli"
 license = "MIT"
 repository = "https://github.com/zahash/jsoncodegen/jsoncodegen-cli"
 
 [dependencies]
-jsoncodegen = { path = "../core", version = "0.2.1" }
+jsoncodegen = { path = "../core", version = "0.3.0" }
 serde_json = "1"
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"

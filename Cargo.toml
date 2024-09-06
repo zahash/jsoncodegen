@@ -1,4 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["jsoncodegen", "jsoncodegen-cli"]
-exclude = ["jsoncodegen-web"]
+members = ["jsoncodegen", "cli", "web"]
+
+[profile.web]
+inherits = "release"
+opt-level = "z"     # Optimize for size
+lto = true          # Enable Link Time Optimization (LTO)
+codegen-units = 1   # Forces the compiler to use a single code generation unit to improve optimizations
+panic = "abort"     # Remove panic support, reducing code size
+
+# cargo build -p jcg --release
+# cargo build -p jsoncodegen-web --target wasm32-unknown-unknown --profile web

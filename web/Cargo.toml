@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["zahash <zahash.z@gmail.com>"]
 description = "json code generation cli"
 license = "MIT"
-repository = "https://github.com/zahash/jsoncodegen/jsoncodegen-web"
+repository = "https://github.com/zahash/jsoncodegen/"
 publish = false
 
 [lib]

@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["zahash <zahash.z@gmail.com>"]
 description = "json code generation"
 license = "MIT"
-repository = "https://github.com/zahash/jsoncodegen/jsoncodegen"
+repository = "https://github.com/zahash/jsoncodegen/"
 
 [dependencies]
 serde_json = "1"

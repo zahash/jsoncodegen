@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["zahash <zahash.z@gmail.com>"]
 description = "json code generation cli"
 license = "MIT"
-repository = "https://github.com/zahash/jsoncodegen/jsoncodegen-cli"
+repository = "https://github.com/zahash/jsoncodegen/"
 
 [dependencies]
 jsoncodegen = { path = "../core", version = "0.3.0" }

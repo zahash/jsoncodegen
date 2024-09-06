@@ -11,3 +11,6 @@ panic = "abort"     # Remove panic support, reducing code size
 
 # cargo build -p jcg --release
 # cargo build -p jsoncodegen-web --target wasm32-unknown-unknown --profile web
+
+# cargo install wasm-bindgen-cli
+# wasm-bindgen ./target/wasm32-unknown-unknown/web/jsoncodegen_web.wasm --out-dir ./pkg --no-typescript --target web

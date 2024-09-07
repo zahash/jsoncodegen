@@ -18,7 +18,7 @@ pub fn rust<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
     };
 
     for def in ctx.aliases {
-        writeln!(out, "type {} = {};", def.name, def.ty)?;
+        writeln!(out, "pub type {} = {};", def.name, def.ty)?;
     }
 
     for def in ctx.structs {

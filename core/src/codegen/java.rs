@@ -1,4 +1,4 @@
-use super::CaseConverter;
+use super::{to_camel_case_or_unknown, to_pascal_case_or_unknown, Iota};
 use crate::schema::{Field, FieldType, Schema};
 use std::io::{Error, Write};
 
@@ -28,7 +28,6 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
             )?;
         }
 
-        let mut case_converter = CaseConverter::new();
         for member_var in &class.vars {
             let add_json_property = member_var.original_name != member_var.var_name;
             if add_json_property {
@@ -38,7 +37,7 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
                 out,
                 "    public {} get{}() {{ return {}; }}",
                 member_var.type_name,
-                case_converter.pascal_case(&member_var.var_name),
+                to_pascal_case_or_unknown(&member_var.var_name, &mut ctx.iota),
                 member_var.var_name
             )?;
             if add_json_property {
@@ -47,7 +46,7 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
             writeln!(
                 out,
                 "    public void set{}({} value) {{ this.{} = value; }}",
-                case_converter.pascal_case(&member_var.var_name),
+                to_pascal_case_or_unknown(&member_var.var_name, &mut ctx.iota),
                 member_var.type_name,
                 member_var.var_name
             )?;
@@ -144,7 +143,7 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
 struct Context {
     classes: Vec<Class>,
     unions: Vec<Union>,
-    case_converter: CaseConverter,
+    iota: Iota,
 }
 
 struct Class {
@@ -173,7 +172,7 @@ impl Context {
         Self {
             classes: vec![],
             unions: vec![],
-            case_converter: CaseConverter::new(),
+            iota: Iota::new(),
         }
     }
 
@@ -208,44 +207,44 @@ impl Context {
     fn process_field(&mut self, field: Field) -> MemberVar {
         match field.ty {
             FieldType::String => MemberVar {
-                var_name: self.case_converter.camel_case(&field.name),
+                var_name: to_camel_case_or_unknown(&field.name, &mut self.iota),
                 original_name: field.name,
                 type_name: "String".into(),
             },
             FieldType::Integer => MemberVar {
-                var_name: self.case_converter.camel_case(&field.name),
+                var_name: to_camel_case_or_unknown(&field.name, &mut self.iota),
                 original_name: field.name,
                 type_name: "Long".into(),
             },
             FieldType::Float => MemberVar {
-                var_name: self.case_converter.camel_case(&field.name),
+                var_name: to_camel_case_or_unknown(&field.name, &mut self.iota),
                 original_name: field.name,
                 type_name: "Double".into(),
             },
             FieldType::Boolean => MemberVar {
-                var_name: self.case_converter.camel_case(&field.name),
+                var_name: to_camel_case_or_unknown(&field.name, &mut self.iota),
                 original_name: field.name,
                 type_name: "Boolean".into(),
             },
             FieldType::Unknown => MemberVar {
-                var_name: self.case_converter.camel_case(&field.name),
+                var_name: to_camel_case_or_unknown(&field.name, &mut self.iota),
                 original_name: field.name,
                 type_name: "Object".into(),
             },
             FieldType::Object(nested_fields) => {
-                let nested_class_name = self.case_converter.pascal_case(&field.name);
+                let nested_class_name = to_pascal_case_or_unknown(&field.name, &mut self.iota);
                 self.add_class(nested_class_name.clone(), nested_fields);
                 MemberVar {
-                    var_name: self.case_converter.camel_case(&field.name),
+                    var_name: to_camel_case_or_unknown(&field.name, &mut self.iota),
                     original_name: field.name,
                     type_name: nested_class_name,
                 }
             }
             FieldType::Union(types) => {
-                let nested_class_name = self.case_converter.pascal_case(&field.name);
+                let nested_class_name = to_pascal_case_or_unknown(&field.name, &mut self.iota);
                 self.add_union_class(nested_class_name.clone(), types);
                 MemberVar {
-                    var_name: self.case_converter.camel_case(&field.name),
+                    var_name: to_camel_case_or_unknown(&field.name, &mut self.iota),
                     original_name: field.name,
                     type_name: nested_class_name,
                 }

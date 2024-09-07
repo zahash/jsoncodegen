@@ -1,4 +1,4 @@
-use super::CaseConverter;
+use super::{to_pascal_case_or_unknown, to_snake_case_or_unknown, Iota};
 use crate::schema::{Field, FieldType, Schema};
 use std::io::{Error, Write};
 
@@ -53,7 +53,7 @@ struct Context {
     aliases: Vec<AliasDef>,
     structs: Vec<StructDef>,
     enums: Vec<EnumDef>,
-    case_converter: CaseConverter,
+    iota: Iota,
 }
 
 struct StructDef {
@@ -88,7 +88,7 @@ impl Context {
             aliases: vec![],
             structs: vec![],
             enums: vec![],
-            case_converter: CaseConverter::new(),
+            iota: Iota::new(),
         }
     }
 
@@ -130,44 +130,44 @@ impl Context {
     fn process_field(&mut self, field: Field) -> StructField {
         match field.ty {
             FieldType::String => StructField {
-                variable_name: self.case_converter.snake_case(&field.name),
+                variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
                 original_name: field.name,
                 type_name: "String".into(),
             },
             FieldType::Integer => StructField {
-                variable_name: self.case_converter.snake_case(&field.name),
+                variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
                 original_name: field.name,
                 type_name: "isize".into(),
             },
             FieldType::Float => StructField {
-                variable_name: self.case_converter.snake_case(&field.name),
+                variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
                 original_name: field.name,
                 type_name: "f64".into(),
             },
             FieldType::Boolean => StructField {
-                variable_name: self.case_converter.snake_case(&field.name),
+                variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
                 original_name: field.name,
                 type_name: "bool".into(),
             },
             FieldType::Unknown => StructField {
-                variable_name: self.case_converter.snake_case(&field.name),
+                variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
                 original_name: field.name,
                 type_name: "serde_json::Value".into(),
             },
             FieldType::Object(nested_fields) => {
-                let nested_struct_name = self.case_converter.pascal_case(&field.name);
+                let nested_struct_name = to_pascal_case_or_unknown(&field.name, &mut self.iota);
                 self.add_struct(nested_struct_name.clone(), nested_fields);
                 StructField {
-                    variable_name: self.case_converter.snake_case(&field.name),
+                    variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
                     original_name: field.name,
                     type_name: nested_struct_name,
                 }
             }
             FieldType::Union(types) => {
-                let nested_enum_name = self.case_converter.pascal_case(&field.name);
+                let nested_enum_name = to_pascal_case_or_unknown(&field.name, &mut self.iota);
                 self.add_enum(nested_enum_name.clone(), types);
                 StructField {
-                    variable_name: self.case_converter.snake_case(&field.name),
+                    variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
                     original_name: field.name,
                     type_name: nested_enum_name,
                 }
@@ -242,7 +242,10 @@ impl Context {
                 });
 
                 EnumVariant {
-                    variant_name: self.case_converter.pascal_case(&struct_field.variable_name),
+                    variant_name: to_pascal_case_or_unknown(
+                        &struct_field.variable_name,
+                        &mut self.iota,
+                    ),
                     associated_type: struct_field.type_name,
                 }
             }

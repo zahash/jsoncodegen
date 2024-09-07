@@ -4,122 +4,199 @@ mod rust;
 pub use java::java;
 pub use rust::rust;
 
-struct CaseConverter {
-    counter: usize,
+use convert_case::{Case, Casing};
+
+pub struct Iota {
+    n: usize,
 }
 
-impl CaseConverter {
-    fn new() -> Self {
-        Self { counter: 0 }
+impl Iota {
+    pub fn new() -> Self {
+        Self { n: 0 }
     }
 
-    // TODO: PascalCase string must NOT start with a number
-    fn pascal_case(&mut self, text: &str) -> String {
-        let clean_text: String = text
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
-            .collect();
+    pub fn get(&mut self) -> usize {
+        let n = self.n;
+        self.n += 1;
+        n
+    }
+}
 
-        let words: Vec<String> = clean_text
-            .split(|c: char| c == '_' || c.is_whitespace())
-            .filter(|word| !word.is_empty())
-            .map(|word| {
-                let mut chars = word.chars();
-                let first_char = chars.next().unwrap().to_ascii_uppercase();
-                let rest: String = chars.collect();
-                format!("{}{}", first_char, rest)
-            })
-            .collect();
+pub fn to_pascal_case_or_unknown(text: &str, iota: &mut Iota) -> String {
+    let text = clean(text);
+    match text.is_empty() {
+        true => format!("Unknown{}", iota.get()),
+        false => text.to_case(Case::Pascal),
+    }
+}
 
-        let result = words.concat();
-        match result.is_empty() {
-            true => self.unknown_pascal_case(),
-            false => result,
+pub fn to_camel_case_or_unknown(text: &str, iota: &mut Iota) -> String {
+    let text = clean(text);
+    match text.is_empty() {
+        true => format!("unknown{}", iota.get()),
+        false => text.to_case(Case::Camel),
+    }
+}
+
+pub fn to_snake_case_or_unknown(text: &str, iota: &mut Iota) -> String {
+    let text = clean(text);
+    match text.is_empty() {
+        true => format!("unknown_{}", iota.get()),
+        false => text.to_case(Case::Snake),
+    }
+}
+
+/// keep only ascii alphanumeric, ascii whitespace and underscore.
+/// there will only be atmost one whitespace between two words.
+/// there won't be any leading or trailing whitespaces
+/// there won't be any leading digits
+fn clean(text: &str) -> String {
+    let text: String = text.replace(|c: char| !(c.is_ascii_alphanumeric() || c == '_'), " ");
+    let segments: Vec<&str> = text
+        .split_ascii_whitespace()
+        .filter(|s| !s.is_empty())
+        .collect();
+    let segments = trim_leading_digits(&segments);
+    segments.join(" ")
+}
+
+fn trim_leading_digits<'s>(segments: &[&'s str]) -> Vec<&'s str> {
+    match segments {
+        [] => vec![],
+        [first, rest @ ..] => {
+            let first = first.trim_start_matches(|c: char| c.is_ascii_digit());
+            match first.is_empty() {
+                true => trim_leading_digits(rest),
+                false => {
+                    let mut v = vec![first];
+                    v.extend(rest);
+                    v
+                }
+            }
         }
-    }
-
-    // TODO: camelCase string must NOT start with a number
-    fn camel_case(&mut self, text: &str) -> String {
-        let clean_text: String = text
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
-            .collect();
-
-        let mut words: Vec<String> = clean_text
-            .split(|c: char| c == '_' || c.is_whitespace())
-            .filter(|word| !word.is_empty())
-            .map(|word| {
-                let mut chars = word.chars();
-                let first_char = chars.next().unwrap().to_ascii_uppercase();
-                let rest: String = chars.collect();
-                format!("{}{}", first_char, rest)
-            })
-            .collect();
-
-        if let Some(first_word) = words.iter_mut().next() {
-            let mut chars = first_word.chars();
-            let first_char = chars.next().unwrap().to_ascii_lowercase();
-            let rest: String = chars.collect();
-            *first_word = format!("{}{}", first_char, rest);
-        }
-
-        let result = words.concat();
-        match result.is_empty() {
-            true => self.unknown_camel_case(),
-            false => result,
-        }
-    }
-
-    // TODO: snake_case string must NOT start with a number
-    fn snake_case(&mut self, text: &str) -> String {
-        let clean_text: String = text
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
-            .map(|c| c.to_ascii_lowercase())
-            .collect();
-
-        let words: Vec<String> = clean_text
-            .split(|c: char| c.is_whitespace())
-            .map(|s| s.into())
-            .collect();
-
-        let result = words.join("_");
-        match result.is_empty() {
-            true => self.unknown_snake_case(),
-            false => result,
-        }
-    }
-
-    fn unknown_pascal_case(&mut self) -> String {
-        let text = format!("Unknown{}", self.counter);
-        self.counter += 1;
-        text
-    }
-
-    fn unknown_camel_case(&mut self) -> String {
-        let text = format!("unknown{}", self.counter);
-        self.counter += 1;
-        text
-    }
-
-    fn unknown_snake_case(&mut self) -> String {
-        let text = format!("unknown_{}", self.counter);
-        self.counter += 1;
-        text
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use pretty_assertions::assert_eq;
 
-    use super::CaseConverter;
+    struct TestCase<'a> {
+        input: &'a str,
+        pascal: &'a str,
+        camel: &'a str,
+        snake: &'a str,
+    }
+
+    impl<'a> TestCase<'a> {
+        fn assert(self) {
+            assert_eq!(
+                self.pascal,
+                to_pascal_case_or_unknown(self.input, &mut Iota::new()),
+                "mismatch pascal"
+            );
+            assert_eq!(
+                self.camel,
+                to_camel_case_or_unknown(self.input, &mut Iota::new()),
+                "mismatch camel"
+            );
+            assert_eq!(
+                self.snake,
+                to_snake_case_or_unknown(self.input, &mut Iota::new()),
+                "mismatch snake"
+            );
+        }
+    }
 
     #[test]
     fn test() {
-        let mut case_converter = CaseConverter::new();
-        assert_eq!("Unknown0", case_converter.pascal_case("て"));
-        assert_eq!("unknown1", case_converter.camel_case("て"));
-        assert_eq!("unknown_2", case_converter.snake_case("て"));
+        TestCase {
+            input: "basic",
+            pascal: "Basic",
+            camel: "basic",
+            snake: "basic",
+        }
+        .assert();
+
+        TestCase {
+            input: "RubberDuck",
+            pascal: "RubberDuck",
+            camel: "rubberDuck",
+            snake: "rubber_duck",
+        }
+        .assert();
+
+        TestCase {
+            input: "rubberDuck",
+            pascal: "RubberDuck",
+            camel: "rubberDuck",
+            snake: "rubber_duck",
+        }
+        .assert();
+
+        TestCase {
+            input: "rubber_duck",
+            pascal: "RubberDuck",
+            camel: "rubberDuck",
+            snake: "rubber_duck",
+        }
+        .assert();
+
+        TestCase {
+            input: "",
+            pascal: "Unknown0",
+            camel: "unknown0",
+            snake: "unknown_0",
+        }
+        .assert();
+
+        TestCase {
+            input: "    ",
+            pascal: "Unknown0",
+            camel: "unknown0",
+            snake: "unknown_0",
+        }
+        .assert();
+
+        TestCase {
+            input: "こんにちは",
+            pascal: "Unknown0",
+            camel: "unknown0",
+            snake: "unknown_0",
+        }
+        .assert();
+
+        TestCase {
+            input: "spaces    between",
+            pascal: "SpacesBetween",
+            camel: "spacesBetween",
+            snake: "spaces_between",
+        }
+        .assert();
+
+        TestCase {
+            input: "123digits",
+            pascal: "Digits",
+            camel: "digits",
+            snake: "digits",
+        }
+        .assert();
+
+        TestCase {
+            input: "123 digits",
+            pascal: "Digits",
+            camel: "digits",
+            snake: "digits",
+        }
+        .assert();
+
+        TestCase {
+            input: "   123  56foo88  33  こんにちは  ",
+            pascal: "Foo8833",
+            camel: "foo8833",
+            snake: "foo_88_33",
+        }
+        .assert();
     }
 }

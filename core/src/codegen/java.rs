@@ -1,4 +1,7 @@
-use super::{to_camel_case_or_unknown, to_pascal_case_or_unknown, Iota};
+use super::{
+    case::{to_camel_case_or_unknown, to_pascal_case_or_unknown},
+    Iota,
+};
 use crate::schema::{Field, FieldType, Schema};
 use std::io::{Error, Write};
 

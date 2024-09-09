@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use jsoncodegen::{codegen, schema};
+use jsoncodegen::*;
 use serde_json::Value;
 use std::{fs::File, io::BufReader};
 
@@ -26,12 +26,11 @@ fn main() -> anyhow::Result<()> {
     let reader = BufReader::new(file);
 
     let json: Value = serde_json::from_reader(reader)?;
-    let schema = schema::extract(json);
     let mut stdout = std::io::stdout().lock();
 
     match args.lang {
-        Lang::Java => codegen::java(schema, &mut stdout)?,
-        Lang::Rust => codegen::rust(schema, &mut stdout)?,
+        Lang::Java => java(json, &mut stdout)?,
+        Lang::Rust => rust(json, &mut stdout)?,
     }
 
     Ok(())

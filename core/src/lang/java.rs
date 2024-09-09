@@ -1,11 +1,16 @@
-use super::{
+use crate::{
     case::{to_camel_case_or_unknown, to_pascal_case_or_unknown},
-    Iota,
+    iota::Iota,
+    schema::{Field, FieldType, Schema},
 };
-use crate::schema::{Field, FieldType, Schema};
+use serde_json::Value;
 use std::io::{Error, Write};
 
-pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
+pub fn java<W: Write>(json: Value, out: &mut W) -> Result<(), Error> {
+    Ok(())
+}
+
+pub fn java2<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
     let mut ctx = Context::new();
 
     match schema {

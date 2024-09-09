@@ -1,4 +1,4 @@
-use jsoncodegen::{codegen, schema};
+use jsoncodegen::*;
 use serde_json::Value;
 use std::io::Cursor;
 use wasm_bindgen::prelude::*;
@@ -12,12 +12,11 @@ pub enum Lang {
 #[wasm_bindgen]
 pub fn codegen(json: &str, lang: Lang) -> Result<String, JsValue> {
     let json: Value = serde_json::from_str(json).map_err(|e| e.to_string())?;
-    let schema = schema::extract(json);
 
     let mut out = Cursor::new(Vec::new());
     match lang {
-        Lang::Java => codegen::java(schema, &mut out).map_err(|e| e.to_string())?,
-        Lang::Rust => codegen::rust(schema, &mut out).map_err(|e| e.to_string())?,
+        Lang::Java => java(json, &mut out).map_err(|e| e.to_string())?,
+        Lang::Rust => rust(json, &mut out).map_err(|e| e.to_string())?,
     }
     let code = String::from_utf8(out.into_inner()).map_err(|e| e.to_string())?;
 

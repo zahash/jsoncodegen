@@ -1,21 +1,20 @@
-use super::Iota;
-use crate::schema::{Field, FieldType, Schema};
+use crate::{iota::Iota, schema::{Field, FieldType, Schema}};
 
 #[derive(Debug)]
-pub struct Code {
-    root: usize,
-    types: Vec<Type>,
+pub struct FlatSchema {
+    pub root: usize,
+    pub types: Vec<FlatType>,
 }
 
 #[derive(Debug)]
-pub struct Type {
-    id: usize,
-    ty: TypeType,
-    trace: Vec<String>,
+pub struct FlatType {
+    pub id: usize,
+    pub ty: FlatTypeKind,
+    pub trace: Vec<String>,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum TypeType {
+pub enum FlatTypeKind {
     String,
     Integer,
     Float,
@@ -33,25 +32,8 @@ pub struct ObjField {
     pub type_id: usize,
 }
 
-fn foo() {
-    let _ = vec![Type {
-        id: 1,
-        trace: vec!["from".into()],
-        ty: TypeType::Object(vec![
-            ObjField {
-                key: "x".into(),
-                type_id: 0,
-            },
-            ObjField {
-                key: "y".into(),
-                type_id: 0,
-            },
-        ]),
-    }];
-}
-
 struct Ctx {
-    types: Vec<Type>,
+    types: Vec<FlatType>,
     trace: Vec<String>,
     iota: Iota,
 }
@@ -68,7 +50,7 @@ impl Ctx {
     }
 }
 
-pub fn code(schema: Schema) -> Code {
+pub fn flatten(schema: Schema) -> FlatSchema {
     let mut ctx = Ctx {
         types: vec![],
         trace: vec![],
@@ -80,16 +62,16 @@ pub fn code(schema: Schema) -> Code {
         Schema::Array(ty) => {
             let inner = field_type(ty, &mut ctx);
             let root = ctx.iota.get();
-            ctx.types.push(Type {
+            ctx.types.push(FlatType {
                 id: root,
-                ty: TypeType::Array(inner),
+                ty: FlatTypeKind::Array(inner),
                 trace: ctx.trace.clone(),
             });
             root
         }
     };
 
-    Code {
+    FlatSchema {
         root,
         types: ctx.types,
     }
@@ -108,8 +90,8 @@ fn object(fields: Vec<Field>, ctx: &mut Ctx) -> usize {
     match ctx
         .types
         .iter()
-        .filter_map(|Type { id, ty, trace: _ }| match ty {
-            TypeType::Object(fields) => Some((id, fields)),
+        .filter_map(|FlatType { id, ty, trace: _ }| match ty {
+            FlatTypeKind::Object(fields) => Some((id, fields)),
             _ => None,
         })
         .find(|(_, fields)| **fields == obj_fields)
@@ -117,9 +99,9 @@ fn object(fields: Vec<Field>, ctx: &mut Ctx) -> usize {
         Some((id, _)) => *id,
         None => {
             let id = ctx.iota.get();
-            ctx.types.push(Type {
+            ctx.types.push(FlatType {
                 id,
-                ty: TypeType::Object(obj_fields),
+                ty: FlatTypeKind::Object(obj_fields),
                 trace: ctx.trace.clone(),
             });
             id
@@ -129,61 +111,61 @@ fn object(fields: Vec<Field>, ctx: &mut Ctx) -> usize {
 
 fn field_type(ty: FieldType, ctx: &mut Ctx) -> usize {
     match ty {
-        FieldType::String => match ctx.types.iter().find(|t| t.ty == TypeType::String) {
+        FieldType::String => match ctx.types.iter().find(|t| t.ty == FlatTypeKind::String) {
             Some(t) => t.id,
             None => {
                 let id = ctx.iota.get();
-                ctx.types.push(Type {
+                ctx.types.push(FlatType {
                     id,
-                    ty: TypeType::String,
+                    ty: FlatTypeKind::String,
                     trace: ctx.trace.clone(),
                 });
                 id
             }
         },
-        FieldType::Integer => match ctx.types.iter().find(|t| t.ty == TypeType::Integer) {
+        FieldType::Integer => match ctx.types.iter().find(|t| t.ty == FlatTypeKind::Integer) {
             Some(t) => t.id,
             None => {
                 let id = ctx.iota.get();
-                ctx.types.push(Type {
+                ctx.types.push(FlatType {
                     id,
-                    ty: TypeType::Integer,
+                    ty: FlatTypeKind::Integer,
                     trace: ctx.trace.clone(),
                 });
                 id
             }
         },
-        FieldType::Float => match ctx.types.iter().find(|t| t.ty == TypeType::Float) {
+        FieldType::Float => match ctx.types.iter().find(|t| t.ty == FlatTypeKind::Float) {
             Some(t) => t.id,
             None => {
                 let id = ctx.iota.get();
-                ctx.types.push(Type {
+                ctx.types.push(FlatType {
                     id,
-                    ty: TypeType::Float,
+                    ty: FlatTypeKind::Float,
                     trace: ctx.trace.clone(),
                 });
                 id
             }
         },
-        FieldType::Boolean => match ctx.types.iter().find(|t| t.ty == TypeType::Boolean) {
+        FieldType::Boolean => match ctx.types.iter().find(|t| t.ty == FlatTypeKind::Boolean) {
             Some(t) => t.id,
             None => {
                 let id = ctx.iota.get();
-                ctx.types.push(Type {
+                ctx.types.push(FlatType {
                     id,
-                    ty: TypeType::Boolean,
+                    ty: FlatTypeKind::Boolean,
                     trace: ctx.trace.clone(),
                 });
                 id
             }
         },
-        FieldType::Unknown => match ctx.types.iter().find(|t| t.ty == TypeType::Unknown) {
+        FieldType::Unknown => match ctx.types.iter().find(|t| t.ty == FlatTypeKind::Unknown) {
             Some(t) => t.id,
             None => {
                 let id = ctx.iota.get();
-                ctx.types.push(Type {
+                ctx.types.push(FlatType {
                     id,
-                    ty: TypeType::Unknown,
+                    ty: FlatTypeKind::Unknown,
                     trace: ctx.trace.clone(),
                 });
                 id
@@ -195,8 +177,8 @@ fn field_type(ty: FieldType, ctx: &mut Ctx) -> usize {
             match ctx
                 .types
                 .iter()
-                .filter_map(|Type { id, ty, trace: _ }| match ty {
-                    TypeType::Union(v) => Some((id, v)),
+                .filter_map(|FlatType { id, ty, trace: _ }| match ty {
+                    FlatTypeKind::Union(v) => Some((id, v)),
                     _ => None,
                 })
                 .find(|(_, v)| **v == variant_ids)
@@ -204,9 +186,9 @@ fn field_type(ty: FieldType, ctx: &mut Ctx) -> usize {
                 Some((id, _)) => *id,
                 None => {
                     let id = ctx.iota.get();
-                    ctx.types.push(Type {
+                    ctx.types.push(FlatType {
                         id,
-                        ty: TypeType::Union(variant_ids),
+                        ty: FlatTypeKind::Union(variant_ids),
                         trace: ctx.trace.clone(),
                     });
                     id
@@ -215,13 +197,13 @@ fn field_type(ty: FieldType, ctx: &mut Ctx) -> usize {
         }
         FieldType::Array(ty) => {
             let inner_id = field_type(*ty, ctx);
-            match ctx.types.iter().find(|t| t.ty == TypeType::Array(inner_id)) {
+            match ctx.types.iter().find(|t| t.ty == FlatTypeKind::Array(inner_id)) {
                 Some(t) => t.id,
                 None => {
                     let id = ctx.iota.get();
-                    ctx.types.push(Type {
+                    ctx.types.push(FlatType {
                         id,
-                        ty: TypeType::Array(inner_id),
+                        ty: FlatTypeKind::Array(inner_id),
                         trace: ctx.trace.clone(),
                     });
                     id
@@ -233,20 +215,73 @@ fn field_type(ty: FieldType, ctx: &mut Ctx) -> usize {
             match ctx
                 .types
                 .iter()
-                .find(|t| t.ty == TypeType::Optional(inner_id))
+                .find(|t| t.ty == FlatTypeKind::Optional(inner_id))
             {
                 Some(t) => t.id,
                 None => {
                     let id = ctx.iota.get();
-                    ctx.types.push(Type {
+                    ctx.types.push(FlatType {
                         id,
-                        ty: TypeType::Optional(inner_id),
+                        ty: FlatTypeKind::Optional(inner_id),
                         trace: ctx.trace.clone(),
                     });
                     id
                 }
             }
         }
+    }
+}
+
+pub struct TypeName {
+    pub id: usize,
+    pub name: String,
+}
+
+pub fn type_names<F>(code: &FlatSchema, mut format: F, default: String) -> Vec<TypeName>
+where
+    F: FnMut(&[String]) -> String,
+{
+    let mut taken = vec![];
+    let mut type_names = vec![];
+
+    for ty in &code.types {
+        let name = unique_type_name(&ty.trace, &mut format, &mut taken, default.clone());
+        type_names.push(TypeName { id: ty.id, name });
+    }
+
+    type_names
+}
+
+fn unique_type_name<F>(
+    trace: &[String],
+    mut format: F,
+    taken: &mut Vec<String>,
+    default: String,
+) -> String
+where
+    F: FnMut(&[String]) -> String,
+{
+    for i in (0..trace.len()).rev() {
+        let candidate = format(&trace[i..]);
+        if !taken.contains(&candidate) {
+            taken.push(candidate.clone());
+            return candidate;
+        }
+    }
+
+    let base_name = match trace.is_empty() {
+        true => default,
+        false => format(trace),
+    };
+
+    let mut count = 0;
+    loop {
+        let candidate = format!("{}{}", base_name, count);
+        if !taken.contains(&candidate) {
+            taken.push(candidate.clone());
+            return candidate;
+        }
+        count += 1;
     }
 }
 
@@ -265,7 +300,8 @@ mod tests {
                 "nest": {
                     "from": { "a": "b", "c": "d" }
                 },
-                "to": { "x": 1, "y": 1 }
+                "to": { "x": 1, "y": 1 },
+                "g": [1, 2, 3, 4.0]
             }
             "#,
         )
@@ -273,7 +309,7 @@ mod tests {
 
         // println!("{:#?}", json);
         let schema = extract(json);
-        let types = code(schema);
+        let types = flatten(schema);
         println!("{:#?}", types);
     }
 
@@ -281,14 +317,14 @@ mod tests {
     fn arr() {
         let json: Value = serde_json::from_str(
             r#"
-            [{"foo": ""}, {"bar": 2}]
+            [{"foo": ""}, {"bar": 2}, 1, 2, 3, 4, null]
             "#,
         )
         .unwrap();
 
         // println!("{:#?}", json);
         let schema = extract(json);
-        let code = code(schema);
+        let code = flatten(schema);
         println!("{:#?}", code);
     }
 }

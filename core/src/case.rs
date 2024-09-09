@@ -1,4 +1,4 @@
-use super::Iota;
+use crate::iota::Iota;
 use convert_case::{Case, Casing};
 
 pub fn to_pascal_case_or_unknown(text: &str, iota: &mut Iota) -> String {

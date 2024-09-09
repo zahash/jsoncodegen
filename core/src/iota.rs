@@ -1,11 +1,3 @@
-mod case;
-mod code;
-mod java;
-mod rust;
-
-pub use java::java;
-pub use rust::rust;
-
 pub struct Iota {
     n: usize,
 }

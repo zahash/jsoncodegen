@@ -1,11 +1,195 @@
-use super::{
+use crate::{
     case::{to_pascal_case_or_unknown, to_snake_case_or_unknown},
-    Iota,
+    flat_schema::{flatten, type_names, FlatTypeKind, TypeName},
+    iota::Iota,
+    schema::{extract, Field, FieldType, Schema},
 };
-use crate::schema::{Field, FieldType, Schema};
+use serde_json::Value;
 use std::io::{Error, Write};
 
-pub fn rust<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
+pub fn rust<W: Write>(json: Value, out: &mut W) -> Result<(), Error> {
+    let schema = extract(json);
+    let flat_schema = flatten(schema);
+    let type_names = type_names(
+        &flat_schema,
+        |trace| to_pascal_case_or_unknown(&trace.join(" "), &mut Iota::new()),
+        "Root".into(),
+    );
+
+    let mut written = vec![];
+    for ty in &flat_schema.types {
+        if written.contains(&ty.id) {
+            continue;
+        }
+        written.push(ty.id);
+
+        let type_name = type_names
+            .iter()
+            .find(|TypeName { id, name: _ }| *id == ty.id)
+            .expect("type name must be present");
+
+        match &ty.ty {
+            FlatTypeKind::Object(fields) => {
+                writeln!(out, "#[derive(Serialize, Deserialize, Debug)]")?;
+                writeln!(out, "pub struct {} {{", type_name.name)?;
+                let mut iota = Iota::new();
+                for field in fields {
+                    let field_name = to_snake_case_or_unknown(&field.key, &mut iota);
+                    if field_name != field.key {
+                        writeln!(out, "    #[serde(rename = \"{}\")]", field.key)?;
+                    }
+                    writeln!(
+                        out,
+                        "    pub {}: {},",
+                        field_name,
+                        type_names
+                            .iter()
+                            .find(|TypeName { id, name: _ }| *id == field.type_id)
+                            .expect("type name must be present")
+                            .name
+                    )?;
+                }
+                writeln!(out, "}}")?;
+            }
+            FlatTypeKind::Union(variants) => {
+                writeln!(out, "#[derive(Serialize, Deserialize, Debug)]")?;
+                writeln!(out, "pub enum {} {{", type_name.name)?;
+                for variant in variants {
+                    writeln!(
+                        out,
+                        "    Varinat{}({}),",
+                        variant,
+                        type_names
+                            .iter()
+                            .find(|TypeName { id, name: _ }| id == variant)
+                            .expect("type name must be present")
+                            .name
+                    )?;
+                }
+                writeln!(out, "}}")?;
+            }
+            FlatTypeKind::Array(inner_type_id) => {
+                writeln!(
+                    out,
+                    "type Arr{} = Vec<{}>",
+                    inner_type_id,
+                    type_names
+                        .iter()
+                        .find(|TypeName { id, name: _ }| id == inner_type_id)
+                        .expect("type name must be present")
+                        .name
+                )?;
+            }
+            FlatTypeKind::Optional(inner_type_id) => {
+                writeln!(
+                    out,
+                    "type Optional{} = Option<{}>",
+                    inner_type_id,
+                    type_names
+                        .iter()
+                        .find(|TypeName { id, name: _ }| id == inner_type_id)
+                        .expect("type name must be present")
+                        .name
+                )?;
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    #[test]
+    fn test_obj() {
+        let json: Value = serde_json::from_str(
+            r#"
+            {
+                "from": { "x": 0, "y": 0 },
+                "nest": {
+                    "from": { "a": "b", "c": "d" }
+                },
+                "to": { "x": 1, "y": 1 }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut stdout = std::io::stdout().lock();
+
+        rust(json, &mut stdout).unwrap();
+    }
+
+    #[test]
+    fn test_arr() {
+        let json: Value = serde_json::from_str(
+            r#"
+            [{"foo": ""}, {"bar": 2}, 1, 2, 3, 4, null]
+            "#,
+        )
+        .unwrap();
+        let mut stdout = std::io::stdout().lock();
+
+        rust(json, &mut stdout).unwrap();
+    }
+}
+
+// fn write_type<W: Write>(
+//     out: &mut W,
+//     types: &[Type],
+//     written: &mut Vec<usize>,
+// ) -> Result<String, Error> {
+//     let ty = types
+//         .iter()
+//         .find(|t| t.id == ty)
+//         .expect("type id not found");
+
+//     match &ty.ty {
+//         TypeType::String => Ok("String".into()),
+//         TypeType::Integer => Ok("isize".into()),
+//         TypeType::Float => Ok("f64".into()),
+//         TypeType::Boolean => Ok("bool".into()),
+//         TypeType::Unknown => Ok("serde_json::Value".into()),
+//         TypeType::Object(fields) => {
+//             let struct_name = ty.trace.join("");
+
+//             writeln!(out, "#[derive(Serialize, Deserialize, Debug)]")?;
+//             writeln!(out, "pub struct {} {{", struct_name)?;
+
+//             let mut taken_field_names = vec![];
+//             for field in fields {
+//                 let mut field_name = field.key.clone();
+
+//                 if taken_field_names.contains(&field_name) {
+//                     let mut n = 0usize;
+//                     while taken_field_names.contains(&format!("{}{}", field_name, n)) {
+//                         n += 1;
+//                     }
+//                     field_name = format!("{}{}", field_name, n);
+//                 }
+
+//                 taken_field_names.push(field_name.clone());
+
+//                 if field_name != field.key {
+//                     writeln!(out, "    #[serde(rename = \"{}\")]", field.key)?;
+//                 }
+
+//                 let type_name = write_type(out, field.type_id, types, written, taken_names)?;
+//                 write!(out, "    pub {}: {},", field_name, type_name)?;
+//             }
+//             writeln!(out, "}}")?;
+//             Ok(struct_name)
+//         }
+//         TypeType::Union(union_types) => todo!(),
+//         TypeType::Array(arr_ty) => todo!(),
+//         TypeType::Optional(inner_ty) => todo!(),
+//     }
+// }
+
+pub fn rust2<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
     let mut ctx = Context::new();
     writeln!(out, "use serde::{{Serialize, Deserialize}};")?;
 

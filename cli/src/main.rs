@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
     let reader = BufReader::new(file);
 
     let json: Value = serde_json::from_reader(reader)?;
-    let schema = schema::extract(json);
+    let schema = schema::Schema::from(json);
     let mut stdout = std::io::stdout().lock();
 
     match args.lang {

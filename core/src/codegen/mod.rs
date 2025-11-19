@@ -6,21 +6,7 @@ pub use rust::rust;
 
 use convert_case::{Case, Casing};
 
-struct Iota {
-    n: usize,
-}
-
-impl Iota {
-    fn new() -> Self {
-        Self { n: 0 }
-    }
-
-    fn next(&mut self) -> usize {
-        let n = self.n;
-        self.n += 1;
-        n
-    }
-}
+use crate::iota::Iota;
 
 fn to_pascal_case_or_unknown(text: &str, iota: &mut Iota) -> String {
     let text = clean(text);

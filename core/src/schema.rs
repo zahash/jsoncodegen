@@ -1,5 +1,5 @@
 use serde_json::{Map, Value};
-use std::ops::Deref;
+use std::{fmt::Display, ops::Deref};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Schema {
@@ -26,11 +26,13 @@ pub enum FieldType {
     Optional(Box<FieldType>),
 }
 
-pub fn extract(json: Value) -> Schema {
-    match json {
-        Value::Array(arr) => Schema::Array(array(arr)),
-        Value::Object(obj) => Schema::Object(object(obj)),
-        _ => unreachable!("Valid top level Value will always be object or array"),
+impl From<Value> for Schema {
+    fn from(json: Value) -> Self {
+        match json {
+            Value::Array(arr) => Self::Array(array(arr)),
+            Value::Object(obj) => Self::Object(object(obj)),
+            _ => unreachable!("Valid top level Value will always be object or array"),
+        }
     }
 }
 
@@ -339,24 +341,75 @@ fn field_type(value: Value) -> FieldType {
     }
 }
 
+impl Display for Schema {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Schema::Object(fields) => write!(f, "{{{}}}", FieldsDisp(fields)),
+            Schema::Array(field_type) => write!(f, "[{}]", field_type),
+        }
+    }
+}
+
+impl Display for Field {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.name, self.ty)
+    }
+}
+
+impl Display for FieldType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FieldType::String => write!(f, "str"),
+            FieldType::Integer => write!(f, "int"),
+            FieldType::Float => write!(f, "float"),
+            FieldType::Boolean => write!(f, "bool"),
+            FieldType::Unknown => write!(f, "null"),
+            FieldType::Object(fields) => write!(f, "{{{}}}", FieldsDisp(fields)),
+            FieldType::Union(field_types) => {
+                for field_type in field_types {
+                    write!(f, "|{}", field_type)?;
+                }
+                write!(f, "|")
+            }
+            FieldType::Array(field_type) => write!(f, "[{}]", field_type),
+            FieldType::Optional(field_type) => write!(f, "{}?", field_type),
+        }
+    }
+}
+
+struct FieldsDisp<'a>(&'a [Field]);
+impl Display for FieldsDisp<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut iter = self.0.iter();
+        if let Some(field) = iter.next() {
+            write!(f, "{}", field)?;
+            for field in iter {
+                write!(f, ",{}", field)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
-    fn json(text: &str) -> Value {
-        serde_json::from_str(text).unwrap()
+    fn check(json: &str, schema: &str) {
+        let json = serde_json::from_str::<Value>(json).expect("invalid json string");
+        assert_eq!(format!("{}", Schema::from(json)), schema);
     }
 
     #[test]
     fn empty() {
-        assert_eq!(extract(json("{}")), Schema::Object(vec![]));
-        assert_eq!(extract(json("[]")), Schema::Array(FieldType::Unknown));
+        check("{}", "{}");
+        check("[]", "[null]");
     }
 
     #[test]
     fn array() {
-        let json = json(
+        check(
             r#"
                 [
                     "mixed", null, true, 123, 123.23,
@@ -364,47 +417,13 @@ mod tests {
                     {"k1": "v1", "k3": true}, {"k1": 23, "k3": false}, {"k2": "v2", "k3": true}
                 ]
                 "#,
-        );
-
-        let schema = extract(json);
-
-        assert_eq!(
-            schema,
-            Schema::Array(FieldType::Optional(Box::new(FieldType::Union(vec![
-                FieldType::String,
-                FieldType::Boolean,
-                FieldType::Integer,
-                FieldType::Float,
-                FieldType::Array(Box::new(FieldType::Union(vec![
-                    FieldType::String,
-                    FieldType::Integer,
-                    FieldType::Boolean,
-                    FieldType::Array(Box::new(FieldType::Float))
-                ]))),
-                FieldType::Object(vec![
-                    Field {
-                        name: "k1".into(),
-                        ty: FieldType::Optional(Box::new(FieldType::Union(vec![
-                            FieldType::String,
-                            FieldType::Integer
-                        ])))
-                    },
-                    Field {
-                        name: "k3".into(),
-                        ty: FieldType::Boolean
-                    },
-                    Field {
-                        name: "k2".into(),
-                        ty: FieldType::Optional(Box::new(FieldType::String))
-                    },
-                ])
-            ]))))
+            "[|str|bool|int|float|[|str|int|bool|[float]|]|{k1:|str|int|?,k3:bool,k2:str?}|?]",
         );
     }
 
     #[test]
     fn object() {
-        let json = json(
+        check(
             r#"
                 {
                     "a": "amogus",
@@ -421,79 +440,8 @@ mod tests {
                     ]
                 }
                 "#,
-        );
-
-        let schema = extract(json);
-
-        assert_eq!(
-            schema,
-            Schema::Object(vec![
-                Field {
-                    name: "a".into(),
-                    ty: FieldType::String
-                },
-                Field {
-                    name: "b".into(),
-                    ty: FieldType::Integer
-                },
-                Field {
-                    name: "c".into(),
-                    ty: FieldType::Float
-                },
-                Field {
-                    name: "d".into(),
-                    ty: FieldType::Boolean
-                },
-                Field {
-                    name: "e".into(),
-                    ty: FieldType::Unknown
-                },
-                Field {
-                    name: "f".into(),
-                    ty: FieldType::Object(vec![Field {
-                        name: "n".into(),
-                        ty: FieldType::String
-                    }])
-                },
-                Field {
-                    name: "g".into(),
-                    ty: FieldType::Array(Box::new(FieldType::Integer))
-                },
-                Field {
-                    name: "h".into(),
-                    ty: FieldType::Array(Box::new(FieldType::Optional(Box::new(
-                        FieldType::Union(vec![
-                            FieldType::String,
-                            FieldType::Boolean,
-                            FieldType::Integer,
-                            FieldType::Float,
-                            FieldType::Array(Box::new(FieldType::Union(vec![
-                                FieldType::String,
-                                FieldType::Integer,
-                                FieldType::Boolean,
-                                FieldType::Array(Box::new(FieldType::Float))
-                            ]))),
-                            FieldType::Object(vec![
-                                Field {
-                                    name: "k1".into(),
-                                    ty: FieldType::Optional(Box::new(FieldType::Union(vec![
-                                        FieldType::String,
-                                        FieldType::Integer
-                                    ])))
-                                },
-                                Field {
-                                    name: "k3".into(),
-                                    ty: FieldType::Boolean
-                                },
-                                Field {
-                                    name: "k2".into(),
-                                    ty: FieldType::Optional(Box::new(FieldType::String))
-                                },
-                            ])
-                        ])
-                    ))))
-                },
-            ])
+            "{a:str,b:int,c:float,d:bool,e:null,f:{n:str},g:[int],\
+            h:[|str|bool|int|float|[|str|int|bool|[float]|]|{k1:|str|int|?,k3:bool,k2:str?}|?]}",
         );
     }
 }

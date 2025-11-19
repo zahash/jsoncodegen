@@ -6,25 +6,25 @@ use type_table::TypeTable;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FlatSchema {
-    pub root: Root,
-    pub objects: Vec<Object>,
-    pub unions: Vec<Union>,
+    pub root: FlatRoot,
+    pub objects: Vec<FlatObject>,
+    pub unions: Vec<FlatUnion>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Root {
+pub enum FlatRoot {
     Object(usize),
     Array(FlatFieldType),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Object {
+pub struct FlatObject {
     pub id: usize,
     pub fields: Vec<FlatField>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Union {
+pub struct FlatUnion {
     pub id: usize,
     pub field_types: Vec<FlatFieldType>,
 }
@@ -49,11 +49,11 @@ pub enum FlatFieldType {
 }
 
 impl FlatSchema {
-    pub fn object<'a>(&'a self, id: usize) -> Option<&'a Object> {
+    pub fn object<'a>(&'a self, id: usize) -> Option<&'a FlatObject> {
         self.objects.iter().find(|obj| obj.id == id)
     }
 
-    pub fn union<'a>(&'a self, id: usize) -> Option<&'a Union> {
+    pub fn union<'a>(&'a self, id: usize) -> Option<&'a FlatUnion> {
         self.unions.iter().find(|un| un.id == id)
     }
 }
@@ -69,9 +69,9 @@ impl From<Schema> for FlatSchema {
         let mut type_table = TypeTable::new();
 
         let root = match schema {
-            Schema::Object(fields) => Root::Object(flatten_object(fields, &mut type_table)),
+            Schema::Object(fields) => FlatRoot::Object(flatten_object(fields, &mut type_table)),
             Schema::Array(field_type) => {
-                Root::Array(flatten_field_type(field_type, &mut type_table))
+                FlatRoot::Array(flatten_field_type(field_type, &mut type_table))
             }
         };
 
@@ -142,8 +142,8 @@ mod tests {
         assert_eq!(
             FlatSchema::from(json("{}")),
             FlatSchema {
-                root: Root::Object(0),
-                objects: vec![Object {
+                root: FlatRoot::Object(0),
+                objects: vec![FlatObject {
                     id: 0,
                     fields: vec![]
                 }],
@@ -154,7 +154,7 @@ mod tests {
         assert_eq!(
             FlatSchema::from(json("[]")),
             FlatSchema {
-                root: Root::Array(FlatFieldType::Unknown),
+                root: FlatRoot::Array(FlatFieldType::Unknown),
                 objects: vec![],
                 unions: vec![]
             }

@@ -1,11 +1,12 @@
+
 use crate::{
-    flat_schema::{FlatField, FlatFieldType, Object, Union},
+    flat_schema::{FlatField, FlatFieldType, FlatObject, FlatUnion},
     iota::Iota,
 };
 
 pub struct TypeTable {
-    objects: Vec<Object>,
-    unions: Vec<Union>,
+    objects: Vec<FlatObject>,
+    unions: Vec<FlatUnion>,
     iota: Iota,
 }
 
@@ -18,7 +19,7 @@ impl TypeTable {
         }
     }
 
-    pub fn types(self) -> (Vec<Object>, Vec<Union>) {
+    pub fn types(self) -> (Vec<FlatObject>, Vec<FlatUnion>) {
         (self.objects, self.unions)
     }
 
@@ -32,7 +33,7 @@ impl TypeTable {
         }
 
         let id = self.iota.next();
-        self.objects.push(Object { id, fields });
+        self.objects.push(FlatObject { id, fields });
         id
     }
 
@@ -46,7 +47,7 @@ impl TypeTable {
         }
 
         let id = self.iota.next();
-        self.unions.push(Union { id, field_types });
+        self.unions.push(FlatUnion { id, field_types });
         id
     }
 }

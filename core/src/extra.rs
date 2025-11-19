@@ -1,14 +1,8 @@
-mod java;
-mod rust;
-
-pub use java::java;
-pub use rust::rust;
-
 use convert_case::{Case, Casing};
 
 use crate::iota::Iota;
 
-fn to_pascal_case_or_unknown(text: &str, iota: &mut Iota) -> String {
+pub fn to_pascal_case_or_unknown(text: &str, iota: &mut Iota) -> String {
     let text = clean(text);
     match text.is_empty() {
         true => format!("Unknown{}", iota.next()),
@@ -16,7 +10,7 @@ fn to_pascal_case_or_unknown(text: &str, iota: &mut Iota) -> String {
     }
 }
 
-fn to_camel_case_or_unknown(text: &str, iota: &mut Iota) -> String {
+pub fn to_camel_case_or_unknown(text: &str, iota: &mut Iota) -> String {
     let text = clean(text);
     match text.is_empty() {
         true => format!("unknown{}", iota.next()),
@@ -24,7 +18,7 @@ fn to_camel_case_or_unknown(text: &str, iota: &mut Iota) -> String {
     }
 }
 
-fn to_snake_case_or_unknown(text: &str, iota: &mut Iota) -> String {
+pub fn to_snake_case_or_unknown(text: &str, iota: &mut Iota) -> String {
     let text = clean(text);
     match text.is_empty() {
         true => format!("unknown_{}", iota.next()),

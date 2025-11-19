@@ -331,9 +331,9 @@ fn field_type(value: Value) -> FieldType {
     match value {
         Value::Null => FieldType::Unknown,
         Value::Bool(_) => FieldType::Boolean,
-        Value::Number(n) => match n.is_f64() {
-            true => FieldType::Float,
-            false => FieldType::Integer,
+        Value::Number(n) => match n.is_u64() || n.is_i64() {
+            true => FieldType::Integer,
+            false => FieldType::Float,
         },
         Value::String(_) => FieldType::String,
         Value::Array(arr) => FieldType::Array(Box::new(array(arr))),

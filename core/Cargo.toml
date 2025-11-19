@@ -3,7 +3,7 @@ name = "jsoncodegen"
 version = "0.3.1"
 edition = "2021"
 authors = ["zahash <zahash.z@gmail.com>"]
-description = "json code generation"
+description = "json code generation library"
 license = "MIT"
 repository = "https://github.com/zahash/jsoncodegen/"
 
@@ -13,3 +13,6 @@ convert_case = "0.9"
 
 [dev-dependencies]
 pretty_assertions = { version = "1" }
+
+[features]
+extra = []

@@ -1,5 +1,6 @@
-pub mod codegen;
 pub mod flat_schema;
+pub mod iota;
 pub mod schema;
 
-mod iota;
+#[cfg(feature = "extra")]
+pub mod extra;

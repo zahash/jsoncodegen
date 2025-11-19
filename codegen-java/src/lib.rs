@@ -1,8 +1,13 @@
-use super::{to_camel_case_or_unknown, to_pascal_case_or_unknown, Iota};
-use crate::schema::{Field, FieldType, Schema};
-use std::io::{Error, Write};
+use std::io;
 
-pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
+use jsoncodegen::{
+    extra::{to_camel_case_or_unknown, to_pascal_case_or_unknown},
+    iota::Iota,
+    schema::{Field, FieldType, Schema},
+};
+
+pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> Result<(), io::Error> {
+    let schema = Schema::from(json);
     let mut ctx = Context::new();
 
     match schema {
@@ -88,7 +93,11 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
             "    static class Serializer extends JsonSerializer<{}> {{",
             union.name
         )?;
-        writeln!(out, "        @Override public void serialize({} value, JsonGenerator generator, SerializerProvider serializer) throws IOException {{", union.name)?;
+        writeln!(
+            out,
+            "        @Override public void serialize({} value, JsonGenerator generator, SerializerProvider serializer) throws IOException {{",
+            union.name
+        )?;
         for union_var in &union.vars {
             writeln!(
                 out,
@@ -106,7 +115,11 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
             "    static class Deserializer extends JsonDeserializer<{}> {{",
             union.name
         )?;
-        writeln!(out, "        @Override public {} deserialize(JsonParser parser, DeserializationContext ctx) throws IOException {{", union.name)?;
+        writeln!(
+            out,
+            "        @Override public {} deserialize(JsonParser parser, DeserializationContext ctx) throws IOException {{",
+            union.name
+        )?;
         writeln!(
             out,
             "            {} value = new {}();",
@@ -117,12 +130,36 @@ pub fn java<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
         writeln!(out, "            case VALUE_NULL: break;")?;
         for union_var in &union.vars {
             match union_var.type_name.as_str() {
-                "String" => writeln!(out, "            case VALUE_STRING: value.{} = parser.readValueAs(String.class); break;", union_var.var_name)?,
-                "Long" => writeln!(out, "            case VALUE_NUMBER_INT: value.{} = parser.readValueAs(Long.class); break;", union_var.var_name)?,
-                "Double" => writeln!(out, "            case VALUE_NUMBER_FLOAT: value.{} = parser.readValueAs(Double.class); break;", union_var.var_name)?,
-                "Boolean" => writeln!(out, "            case VALUE_TRUE: case VALUE_FALSE: value.{} = parser.readValueAs(Boolean.class); break;", union_var.var_name)?,
-                _ if union_var.type_name.starts_with("List") => writeln!(out, "            case START_ARRAY: value.{} = parser.readValueAs({}.class); break;", union_var.var_name, union_var.type_name)?,
-                _ => writeln!(out, "            case START_OBJECT: value.{} = parser.readValueAs({}.class); break;", union_var.var_name, union_var.type_name)?,
+                "String" => writeln!(
+                    out,
+                    "            case VALUE_STRING: value.{} = parser.readValueAs(String.class); break;",
+                    union_var.var_name
+                )?,
+                "Long" => writeln!(
+                    out,
+                    "            case VALUE_NUMBER_INT: value.{} = parser.readValueAs(Long.class); break;",
+                    union_var.var_name
+                )?,
+                "Double" => writeln!(
+                    out,
+                    "            case VALUE_NUMBER_FLOAT: value.{} = parser.readValueAs(Double.class); break;",
+                    union_var.var_name
+                )?,
+                "Boolean" => writeln!(
+                    out,
+                    "            case VALUE_TRUE: case VALUE_FALSE: value.{} = parser.readValueAs(Boolean.class); break;",
+                    union_var.var_name
+                )?,
+                _ if union_var.type_name.starts_with("List") => writeln!(
+                    out,
+                    "            case START_ARRAY: value.{} = parser.readValueAs({}.class); break;",
+                    union_var.var_name, union_var.type_name
+                )?,
+                _ => writeln!(
+                    out,
+                    "            case START_OBJECT: value.{} = parser.readValueAs({}.class); break;",
+                    union_var.var_name, union_var.type_name
+                )?,
             };
         }
         writeln!(

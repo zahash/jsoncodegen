@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
-use jsoncodegen::{codegen, schema};
 use serde_json::Value;
-use std::{fs::File, io::BufReader};
+use std::{error::Error, fs::File, io::BufReader};
 
 #[derive(Parser, Debug)]
 struct JSONCodeGen {
@@ -19,19 +18,18 @@ enum Lang {
     Rust,
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<(), Box<dyn Error>> {
     let args = JSONCodeGen::parse();
 
     let file = File::open(args.filepath)?;
     let reader = BufReader::new(file);
 
     let json: Value = serde_json::from_reader(reader)?;
-    let schema = schema::Schema::from(json);
     let mut stdout = std::io::stdout().lock();
 
     match args.lang {
-        Lang::Java => codegen::java(schema, &mut stdout)?,
-        Lang::Rust => codegen::rust(schema, &mut stdout)?,
+        Lang::Java => jsoncodegen_java::codegen(json, &mut stdout)?,
+        Lang::Rust => jsoncodegen_rust::codegen(json, &mut stdout)?,
     }
 
     Ok(())

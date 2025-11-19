@@ -1,8 +1,13 @@
-use super::{to_pascal_case_or_unknown, to_snake_case_or_unknown, Iota};
-use crate::schema::{Field, FieldType, Schema};
-use std::io::{Error, Write};
+use std::io;
 
-pub fn rust<W: Write>(schema: Schema, out: &mut W) -> Result<(), Error> {
+use jsoncodegen::{
+    extra::{to_pascal_case_or_unknown, to_snake_case_or_unknown},
+    iota::Iota,
+    schema::{Field, FieldType, Schema},
+};
+
+pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> Result<(), io::Error> {
+    let schema = Schema::from(json);
     let mut ctx = Context::new();
     writeln!(out, "use serde::{{Serialize, Deserialize}};")?;
 

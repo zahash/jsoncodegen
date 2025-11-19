@@ -6,42 +6,42 @@ pub use rust::rust;
 
 use convert_case::{Case, Casing};
 
-pub struct Iota {
+struct Iota {
     n: usize,
 }
 
 impl Iota {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self { n: 0 }
     }
 
-    pub fn get(&mut self) -> usize {
+    fn next(&mut self) -> usize {
         let n = self.n;
         self.n += 1;
         n
     }
 }
 
-pub fn to_pascal_case_or_unknown(text: &str, iota: &mut Iota) -> String {
+fn to_pascal_case_or_unknown(text: &str, iota: &mut Iota) -> String {
     let text = clean(text);
     match text.is_empty() {
-        true => format!("Unknown{}", iota.get()),
+        true => format!("Unknown{}", iota.next()),
         false => text.to_case(Case::Pascal),
     }
 }
 
-pub fn to_camel_case_or_unknown(text: &str, iota: &mut Iota) -> String {
+fn to_camel_case_or_unknown(text: &str, iota: &mut Iota) -> String {
     let text = clean(text);
     match text.is_empty() {
-        true => format!("unknown{}", iota.get()),
+        true => format!("unknown{}", iota.next()),
         false => text.to_case(Case::Camel),
     }
 }
 
-pub fn to_snake_case_or_unknown(text: &str, iota: &mut Iota) -> String {
+fn to_snake_case_or_unknown(text: &str, iota: &mut Iota) -> String {
     let text = clean(text);
     match text.is_empty() {
-        true => format!("unknown_{}", iota.get()),
+        true => format!("unknown_{}", iota.next()),
         false => text.to_case(Case::Snake),
     }
 }

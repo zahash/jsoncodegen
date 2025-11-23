@@ -34,8 +34,9 @@ pub struct ObjectField {
 
 impl From<Schema> for TypeGraph {
     fn from(schema: Schema) -> Self {
-        let builder = GraphBuilder::new();
-        builder.process_schema(&schema)
+        let type_graph = GraphBuilder::new().process_schema(&schema);
+        let reduced_type_graph = TypeReducer::new().reduce(type_graph);
+        reduced_type_graph
     }
 }
 
@@ -132,28 +133,36 @@ impl TypeReducer {
         Self::default()
     }
 
-    fn reduce(&mut self, type_graph: TypeGraph) {
+    fn reduce(mut self, type_graph: TypeGraph) -> TypeGraph {
         for (type_id, mut type_def) in type_graph.nodes {
             self.remap_type_def(&mut type_def);
             let reduced_type_id = self.reduce_type_def(type_def);
             self.remaps.push((type_id, reduced_type_id));
+        }
+
+        let mut root = type_graph.root;
+        self.remap_type_id(&mut root);
+
+        TypeGraph {
+            root,
+            nodes: self.reduced_nodes,
         }
     }
 
     fn reduce_type_def(&mut self, type_def: TypeDef) -> TypeId {
         match type_def {
             TypeDef::Object(object_fields) => {
-                for (reduced_type_id, reduced_type_def) in &mut self.reduced_nodes {
-                    if let TypeDef::Object(reduced_object_fields) = reduced_type_def {
-                        if let Some(merged_object_fields) =
-                            self.merge_object_fields(reduced_object_fields, &object_fields)
-                        {
-                            *reduced_object_fields = merged_object_fields;
-                            return *reduced_type_id;
-                        }
+                let target_type_ids: Vec<TypeId> = self.reduced_nodes.keys().copied().collect();
+
+                for target_type_id in target_type_ids {
+                    if let Some(merged_object_fields) =
+                        self.try_merge_objects(target_type_id, &object_fields)
+                    {
+                        self.reduced_nodes
+                            .insert(target_type_id, TypeDef::Object(merged_object_fields));
+                        return target_type_id;
                     }
                 }
-
                 self.intern(TypeDef::Object(object_fields))
             }
             TypeDef::String
@@ -167,6 +176,18 @@ impl TypeReducer {
         }
 
         // self.intern(reduced_type_def)
+    }
+
+    fn try_merge_objects(
+        &mut self,
+        target_type_id: TypeId,
+        candidate_fields: &[ObjectField],
+    ) -> Option<Vec<ObjectField>> {
+        let target_object_fields = match self.reduced_nodes.get(&target_type_id) {
+            Some(TypeDef::Object(fields)) => fields.clone(),
+            _ => return None,
+        };
+        self.merge_object_fields(&target_object_fields, candidate_fields)
     }
 
     fn merge_object_fields(
@@ -204,6 +225,7 @@ impl TypeReducer {
         } // types are different from here
 
         let target_type_def = self.reduced_nodes.get(&target.type_id)?;
+        let candidate_type_def = self.reduced_nodes.get(&candidate.type_id)?;
 
         if let TypeDef::Unknown = target_type_def {
             return Some(ObjectField {
@@ -212,12 +234,6 @@ impl TypeReducer {
             });
         }
 
-        if let TypeDef::Optional(target_inner_type_id) = target_type_def {
-            todo!()
-        }
-
-        let candidate_type_def = self.reduced_nodes.get(&candidate.type_id)?;
-
         if let TypeDef::Unknown = candidate_type_def {
             return Some(ObjectField {
                 name: target.name.clone(),
@@ -225,8 +241,16 @@ impl TypeReducer {
             });
         }
 
+        if let TypeDef::Optional(target_inner_type_id) = target_type_def {
+            if target_inner_type_id == &candidate.type_id {
+                return Some(target.clone());
+            }
+        }
+
         if let TypeDef::Optional(candidate_inner_type_id) = candidate_type_def {
-            todo!()
+            if candidate_inner_type_id == &target.type_id {
+                return Some(candidate.clone());
+            }
         }
 
         None

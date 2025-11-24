@@ -173,10 +173,9 @@ impl TypeReducer {
             | TypeDef::Array(_)
             | TypeDef::Optional(_) => self.intern(type_def),
         }
-
-        // self.intern(reduced_type_def)
     }
 
+    // TODO: try to inline this method
     fn try_merge_objects(
         &mut self,
         target_type_id: TypeId,

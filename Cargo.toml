@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "cli", "web", "codegen-java", "codegen-rust"]
+members = ["cli", "core", "extra", "iota", "java", "rust", "web"]
 
 [profile.web]
 inherits = "release"

@@ -1,10 +1,8 @@
 use std::io;
 
-use jsoncodegen::{
-    extra::{to_camel_case_or_unknown, to_pascal_case_or_unknown},
-    iota::Iota,
-    schema::{Field, FieldType, Schema},
-};
+use jsoncodegen::schema::{Field, FieldType, Schema};
+use jsoncodegen_extra::{to_camel_case_or_unknown, to_pascal_case_or_unknown};
+use jsoncodegen_iota::Iota;
 
 pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> Result<(), io::Error> {
     let schema = Schema::from(json);

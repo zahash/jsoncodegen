@@ -1,6 +1,5 @@
 use convert_case::{Case, Casing};
-
-use crate::iota::Iota;
+use jsoncodegen_iota::Iota;
 
 pub fn to_pascal_case_or_unknown(text: &str, iota: &mut Iota) -> String {
     let text = clean(text);

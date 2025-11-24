@@ -1279,3 +1279,175 @@ but it should ideally be this with root = type_id 1
     CodeField { name: "val",  type_id: 0 },
 ])
 2: TypeDef::Optional(1)
+
+
+UPDATE! :: i have made some more progress
+
+#[derive(Default)]
+struct TypeReducer {
+    reduced_nodes: BTreeMap<TypeId, TypeDef>,
+    cache: BTreeMap<TypeDef, TypeId>,
+    remaps: Vec<(TypeId, TypeId)>, // original TypeGraph to reduced TypeGraph
+    iota: Iota,
+}
+
+impl TypeReducer {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn reduce(&mut self, type_graph: TypeGraph) {
+        for (type_id, mut type_def) in type_graph.nodes {
+            self.remap_type_def(&mut type_def);
+            let reduced_type_id = self.reduce_type_def(type_def);
+            self.remaps.push((type_id, reduced_type_id));
+        }
+    }
+
+    fn reduce_type_def(&mut self, type_def: TypeDef) -> TypeId {
+        match type_def {
+            TypeDef::Object(object_fields) => {
+                for (reduced_type_id, reduced_type_def) in &mut self.reduced_nodes {
+                    if let TypeDef::Object(reduced_object_fields) = reduced_type_def {
+                        if let Some(merged_object_fields) =
+                            self.merge_object_fields(reduced_object_fields, &object_fields)
+                        {
+                            *reduced_object_fields = merged_object_fields;
+                            return *reduced_type_id;
+                        }
+                    }
+                }
+
+                self.intern(TypeDef::Object(object_fields))
+            }
+            TypeDef::String
+            | TypeDef::Integer
+            | TypeDef::Float
+            | TypeDef::Boolean
+            | TypeDef::Unknown
+            | TypeDef::Union(_)
+            | TypeDef::Array(_)
+            | TypeDef::Optional(_) => self.intern(type_def),
+        }
+
+        // self.intern(reduced_type_def)
+    }
+
+    fn merge_object_fields(
+        &mut self,
+        target: &[ObjectField],
+        candidate: &[ObjectField],
+    ) -> Option<Vec<ObjectField>> {
+        if target.len() != candidate.len() {
+            return None;
+        }
+
+        target
+            .iter()
+            .zip(candidate.iter())
+            .map(|(target_field, candidate_field)| {
+                self.merge_object_field(target_field, candidate_field)
+            })
+            // collecting Iterator<Item = Option<...>> as Option<Vec<...>>
+            // yeilds Some(Vec<...>) only if every iterated item is Some(...)
+            // else, None is yeilded
+            .collect()
+    }
+
+    fn merge_object_field(
+        &mut self,
+        target: &ObjectField,
+        candidate: &ObjectField,
+    ) -> Option<ObjectField> {
+        if target.name != candidate.name {
+            return None;
+        } // names are same from here
+
+        if target.type_id == candidate.type_id {
+            return Some(target.clone());
+        } // types are different from here
+
+        let target_type_def = self.reduced_nodes.get(&target.type_id)?;
+
+        if let TypeDef::Unknown = target_type_def {
+            return Some(ObjectField {
+                name: candidate.name.clone(),
+                type_id: self.intern(TypeDef::Optional(candidate.type_id)),
+            });
+        }
+
+        if let TypeDef::Optional(target_inner_type_id) = target_type_def {
+            if target_inner_type_id == &candidate.type_id {
+                return Some(target.clone());
+            }
+        }
+
+        let candidate_type_def = self.reduced_nodes.get(&candidate.type_id)?;
+
+        if let TypeDef::Unknown = candidate_type_def {
+            return Some(ObjectField {
+                name: target.name.clone(),
+                type_id: self.intern(TypeDef::Optional(target.type_id)),
+            });
+        }
+
+        if let TypeDef::Optional(candidate_inner_type_id) = candidate_type_def {
+            if candidate_inner_type_id == &target.type_id {
+                return Some(candidate.clone());
+            }
+        }
+
+        None
+    }
+
+    fn intern(&mut self, type_def: TypeDef) -> TypeId {
+        match self.cache.get(&type_def) {
+            Some(type_id) => *type_id,
+            None => {
+                let type_id = self.iota.next();
+                self.reduced_nodes.insert(type_id, type_def.clone());
+                self.cache.insert(type_def, type_id);
+                type_id
+            }
+        }
+    }
+
+    fn remap_type_def(&self, type_def: &mut TypeDef) {
+        match type_def {
+            TypeDef::Object(object_fields) => {
+                for object_field in object_fields {
+                    self.remap_type_id(&mut object_field.type_id);
+                }
+            }
+            TypeDef::Union(type_ids) => {
+                for type_id in type_ids {
+                    self.remap_type_id(type_id);
+                }
+            }
+            TypeDef::Array(type_id) | TypeDef::Optional(type_id) => self.remap_type_id(type_id),
+            _ => { /* no-op */ }
+        }
+    }
+
+    fn remap_type_id(&self, type_id: &mut TypeId) {
+        for (old, new) in &self.remaps {
+            if type_id == old {
+                *type_id = *new;
+            }
+        }
+    }
+}
+
+but now i'm having this borrow checker error.
+how to best fix this? what is the most efficient and elegant way to handle this?
+error[E0499]: cannot borrow `*self` as mutable more than once at a time
+   --> core/src/type_graph.rs:149:29
+    |
+146 | ...ced_type_id, reduced_type_def) in &mut self.reduced_nodes {
+    |                                      -----------------------
+    |                                      |
+    |                                      first mutable borrow occurs here
+    |                                      first borrow later used here
+...
+149 | ...   self.merge_object_fields(reduced_object_fields, &object_f...
+    |       ^^^^ second mutable borrow occurs here

@@ -11,5 +11,5 @@ repository = "https://github.com/zahash/jsoncodegen/"
 clap = { version = "4", features = ["derive"] }
 serde_json = "1"
 
-jsoncodegen-java = { path = "../codegen-java" }
-jsoncodegen-rust = { path = "../codegen-rust" }
+jsoncodegen-java = { path = "../java" }
+jsoncodegen-rust = { path = "../rust" }

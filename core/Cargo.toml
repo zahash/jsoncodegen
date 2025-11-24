@@ -8,11 +8,9 @@ license = "MIT"
 repository = "https://github.com/zahash/jsoncodegen/"
 
 [dependencies]
-convert_case = "0.9"
 serde_json = "1"
+
+jsoncodegen-iota = { path = "../iota" }
 
 [dev-dependencies]
 pretty_assertions = { version = "1" }
-
-[features]
-extra = []

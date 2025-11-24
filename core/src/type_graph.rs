@@ -1,9 +1,8 @@
 use std::collections::BTreeMap;
 
-use crate::{
-    iota::Iota,
-    schema::{Field, FieldType, Schema},
-};
+use jsoncodegen_iota::Iota;
+
+use crate::schema::{Field, FieldType, Schema};
 
 pub type TypeId = usize;
 

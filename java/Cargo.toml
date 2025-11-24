@@ -1,0 +1,11 @@
+[package]
+name = "jsoncodegen-java"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde_json = "1"
+
+jsoncodegen = { path = "../core" }
+jsoncodegen-extra = { path = "../extra" }
+jsoncodegen-iota = { path = "../iota" }

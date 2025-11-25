@@ -1,0 +1,8 @@
+[package]
+name = "jsoncodegen-codegen"
+edition = "2024"
+
+[dependencies]
+serde_json = "1"
+
+jsoncodegen-sink = { path = "../sink" }

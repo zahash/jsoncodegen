@@ -242,6 +242,13 @@ impl TypeReducer {
             }
         }
 
+        if let (TypeDef::Optional(target_inner_type_id), TypeDef::Optional(candidate_inner_type_id)) =
+            (target_type_def, candidate_type_def)
+            && target_inner_type_id != candidate_inner_type_id
+        {
+            // TODO
+        }
+
         None
     }
 

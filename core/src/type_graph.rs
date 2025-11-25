@@ -154,12 +154,16 @@ impl TypeReducer {
                 let target_type_ids: Vec<TypeId> = self.reduced_nodes.keys().copied().collect();
 
                 for target_type_id in target_type_ids {
-                    if let Some(merged_object_fields) =
-                        self.try_merge_objects(target_type_id, &object_fields)
+                    if let Some(TypeDef::Object(target_object_fields)) =
+                        self.reduced_nodes.get(&target_type_id).cloned()
                     {
-                        self.reduced_nodes
-                            .insert(target_type_id, TypeDef::Object(merged_object_fields));
-                        return target_type_id;
+                        if let Some(merged_object_fields) =
+                            self.merge_object_fields(&target_object_fields, &object_fields)
+                        {
+                            self.reduced_nodes
+                                .insert(target_type_id, TypeDef::Object(merged_object_fields));
+                            return target_type_id;
+                        }
                     }
                 }
                 self.intern(TypeDef::Object(object_fields))
@@ -173,19 +177,6 @@ impl TypeReducer {
             | TypeDef::Array(_)
             | TypeDef::Optional(_) => self.intern(type_def),
         }
-    }
-
-    // TODO: try to inline this method
-    fn try_merge_objects(
-        &mut self,
-        target_type_id: TypeId,
-        candidate_fields: &[ObjectField],
-    ) -> Option<Vec<ObjectField>> {
-        let target_object_fields = match self.reduced_nodes.get(&target_type_id) {
-            Some(TypeDef::Object(fields)) => fields.clone(),
-            _ => return None,
-        };
-        self.merge_object_fields(&target_object_fields, candidate_fields)
     }
 
     fn merge_object_fields(

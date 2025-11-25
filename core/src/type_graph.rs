@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use jsoncodegen_iota::Iota;
+use serde_json::Value;
 
 use crate::schema::{Field, FieldType, Schema};
 
@@ -29,6 +30,13 @@ pub enum TypeDef {
 pub struct ObjectField {
     pub name: String,
     pub type_id: TypeId,
+}
+
+impl From<Value> for TypeGraph {
+    fn from(json: Value) -> Self {
+        let schema = Schema::from(json);
+        TypeGraph::from(schema)
+    }
 }
 
 impl From<Schema> for TypeGraph {

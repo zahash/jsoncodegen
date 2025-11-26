@@ -273,18 +273,53 @@ impl FieldTypeAggregator {
     }
 
     fn merge_obj_fields(mut existing_fields: Vec<Field>, mut new_fields: Vec<Field>) -> Vec<Field> {
+        // let mut merged_fields = vec![];
+
+        // for existing_field in existing_fields {
+        //     match new_fields
+        //         .iter()
+        //         .find(|field| field.name == existing_field.name)
+        //     {
+        //         Some(matching_new_field) => {
+        //             let merged_ty = Self::merge(existing_field.ty, matching_new_field.ty.clone());
+        //             merged_fields.push(Field {
+        //                 name: existing_field.name,
+        //                 ty: merged_ty,
+        //             });
+        //         }
+        //         None => merged_fields.push(Field {
+        //             name: existing_field.name,
+        //             ty: match &existing_field.ty {
+        //                 FieldType::Unknown | FieldType::Optional(_) => existing_field.ty,
+        //                 _ => FieldType::Optional(Box::new(existing_field.ty)),
+        //             },
+        //         }),
+        //     }
+        // }
+
+        // for new_field in new_fields {
+        //     if !existing_fields.iter().any(|field| field.name == new_field.name) {
+        //         merged_fields.push(value);
+        //     }
+        // }
+
+        // merged_fields
+
         existing_fields = existing_fields
             .into_iter()
             .map(|mut existing_field| {
                 match new_fields
                     .iter()
-                    .find(|new_field| existing_field.name == new_field.name)
+                    .any(|new_field| existing_field.name == new_field.name)
                 {
-                    Some(_) => existing_field,
-                    None => {
-                        existing_field.ty = FieldType::Optional(Box::new(existing_field.ty));
-                        existing_field
-                    }
+                    true => existing_field,
+                    false => match existing_field.ty {
+                        FieldType::Unknown | FieldType::Optional(_) => existing_field,
+                        _ => {
+                            existing_field.ty = FieldType::Optional(Box::new(existing_field.ty));
+                            existing_field
+                        }
+                    },
                 }
             })
             .collect();
@@ -294,13 +329,16 @@ impl FieldTypeAggregator {
             .map(|mut new_field| {
                 match existing_fields
                     .iter()
-                    .find(|existing_field| existing_field.name == new_field.name)
+                    .any(|existing_field| existing_field.name == new_field.name)
                 {
-                    Some(_) => new_field,
-                    None => {
-                        new_field.ty = FieldType::Optional(Box::new(new_field.ty));
-                        new_field
-                    }
+                    true => new_field,
+                    false => match new_field.ty {
+                        FieldType::Unknown | FieldType::Optional(_) => new_field,
+                        _ => {
+                            new_field.ty = FieldType::Optional(Box::new(new_field.ty));
+                            new_field
+                        }
+                    },
                 }
             })
             .collect();
@@ -398,50 +436,147 @@ mod tests {
 
     fn check(json: &str, schema: &str) {
         let json = serde_json::from_str::<Value>(json).expect("invalid json string");
-        assert_eq!(format!("{}", Schema::from(json)), schema);
+        assert_eq!(schema, format!("{}", Schema::from(json)));
     }
 
     #[test]
-    fn empty() {
+    fn test() {
+        // empty structures
         check("{}", "{}");
         check("[]", "[null]");
+        check("[null]", "[null]");
+
+        // single primitive arrays
+        check("[true]", "[bool]");
+        check("[123]", "[int]");
+        check("[123.5]", "[float]");
+        check(r#"["s"]"#, "[str]");
+
+        // union
+        check("[1, 2.5]", "[|int|float|]");
+        check(r#"["a", 5]"#, "[|str|int|]");
+        check(r#"["s", {"a":1}]"#, "[|str|{a:int}|]");
+        check(r#"[{"a":1}, [1]]"#, "[|{a:int}|[int]|]");
+
+        // null
+        check("[null, null]", "[null]");
+
+        // optional
+        check("[null, 5]", "[int?]");
+        check("[5, null]", "[int?]");
+        check("[null, null, 5]", "[int?]");
+        check("[[1], null]", "[[int]?]");
+        check("[null, [1]]", "[[int]?]");
+
+        // optional union
+        check("[1, 2.2, null]", "[|int|float|?]");
+        check(r#"["s", 1, null]"#, "[|str|int|?]");
+
+        // nested arrays
+        check("[[1], [2]]", "[[int]]");
+        check(r#"[[1], ["a"]]"#, "[[|str|int|]]");
+
+        // array of objects with disjoint fields
+        check(r#"[{"a":1}, {}]"#, "[{a:int?}]");
+        check(r#"[{"a":1}, {"b":"x"}]"#, "[{a:int?,b:str?}]");
+        check(
+            r#"[{"a":1}, {"a":2, "b":"x"}, {"a":2, "c":3.14}]"#,
+            "[{a:int,b:str?,c:float?}]",
+        );
+
+        // object
+        check(r#"{"x": 1}"#, "{x:int}");
+        check(r#"{"x": null}"#, "{x:null}");
+        check(r#"{"x": [1,2]}"#, "{x:[int]}");
+        check(r#"{"x": [1, "a", null]}"#, "{x:[|str|int|?]}");
     }
 
     #[test]
-    fn array() {
+    fn ecommerce_api_response() {
         check(
             r#"
-                [
-                    "mixed", null, true, 123, 123.23,
-                    ["nested", "arr"], ["arr2"], [123], [true, 27, [22.34]],
-                    {"k1": "v1", "k3": true}, {"k1": 23, "k3": false}, {"k2": "v2", "k3": true}
-                ]
-                "#,
-            "[|str|bool|int|float|[|str|int|bool|[float]|]|{k1:|str|int|?,k3:bool,k2:str?}|?]",
+            {
+                "user": {
+                    "id": 123,
+                    "name": "Alice",
+                    "email": "alice@example.com",
+                    "verified": true,
+                    "address": {
+                        "city": "London",
+                        "zip": 40512
+                    }
+                },
+                "cart": [
+                    {
+                        "sku": "SKU-123",
+                        "qty": 2,
+                        "price": 499.99,
+                        "metadata": null
+                    },
+                    {
+                        "sku": "SKU-999",
+                        "qty": 1,
+                        "price": 1299.50,
+                        "metadata": { "color": "red" }
+                    }
+                ],
+                "payment": null,
+                "discount_codes": ["HOLIDAY", 2024, null]
+            }
+            "#,
+            "{\
+            user:{id:int,name:str,email:str,verified:bool,address:{city:str,zip:int}},\
+            cart:[{sku:str,qty:int,price:float,metadata:{color:str}?}],\
+            payment:null,\
+            discount_codes:[|str|int|?]\
+        }",
         );
     }
 
     #[test]
-    fn object() {
+    fn config_file() {
         check(
             r#"
-                {
-                    "a": "amogus",
-                    "b": 123,
-                    "c": 45.67,
-                    "d": true,
-                    "e": null,
-                    "f": {"n": "nested"},
-                    "g": [1, 2],
-                    "h": [
-                        "mixed", null, true, 123, 123.23,
-                        ["nested", "arr"], ["arr2"], [123], [true, 27, [22.34]],
-                        {"k1": "v1", "k3": true}, {"k1": 23, "k3": false}, {"k2": "v2", "k3": true}
-                    ]
+            {
+                "version": "1.0",
+                "services": [
+                    {"name": "db", "replicas": 2, "env": ["POSTGRES=1", "DEBUG=true"]},
+                    {"name": "api", "replicas": 3, "env": null},
+                    {"name": "cache", "replicas": 1, "env": ["REDIS=1"]}
+                ],
+                "features": {
+                    "auth": true,
+                    "logging": { "level": "debug", "files": ["a.log", "b.log"] },
+                    "metrics": null
                 }
-                "#,
-            "{a:str,b:int,c:float,d:bool,e:null,f:{n:str},g:[int],\
-            h:[|str|bool|int|float|[|str|int|bool|[float]|]|{k1:|str|int|?,k3:bool,k2:str?}|?]}",
+            }
+            "#,
+            "{\
+                version:str,\
+                services:[{name:str,replicas:int,env:[str]?}],\
+                features:{auth:bool,logging:{level:str,files:[str]},metrics:null}\
+            }",
+        );
+    }
+
+    #[test]
+    fn analytics_events() {
+        check(
+            r#"
+            [
+                {"event":"click", "x":10, "y":20},
+                {"event":"scroll", "delta": 300},
+                {"event":"purchase", "amount": 129.99, "currency":"USD"},
+                {"event":"click", "x":5, "y":10, "timestamp":"2025-01-01T12:00Z"}
+            ]
+            "#,
+            "[{\
+                event:str,\
+                x:int?,y:int?,\
+                delta:int?,\
+                amount:float?,currency:str?,\
+                timestamp:str?\
+            }]",
         );
     }
 }

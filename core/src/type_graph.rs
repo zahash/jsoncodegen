@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Display};
 
 use jsoncodegen_iota::Iota;
 use serde_json::Value;
@@ -298,6 +298,64 @@ impl TypeReducer {
     }
 }
 
+impl Display for TypeGraph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{};", self.root)?;
+
+        let mut iter = self.nodes.iter();
+        if let Some((type_id, type_def)) = iter.next() {
+            write!(f, "{}:{}", type_id, type_def)?;
+            for (type_id, type_def) in iter {
+                write!(f, ";{}:{}", type_id, type_def)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Display for TypeDef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypeDef::String => write!(f, "str"),
+            TypeDef::Integer => write!(f, "int"),
+            TypeDef::Float => write!(f, "float"),
+            TypeDef::Boolean => write!(f, "bool"),
+            TypeDef::Unknown => write!(f, "null"),
+            TypeDef::Object(object_fields) => {
+                write!(f, "{{{}}}", ObjectFieldsDisplay(object_fields))
+            }
+            TypeDef::Union(inner_type_ids) => {
+                for type_id in inner_type_ids {
+                    write!(f, "|{}", type_id)?;
+                }
+                write!(f, "|")
+            }
+            TypeDef::Array(inner_type_id) => write!(f, "[{}]", inner_type_id),
+            TypeDef::Optional(inner_type_id) => write!(f, "{}?", inner_type_id),
+        }
+    }
+}
+
+impl Display for ObjectField {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.name, self.type_id)
+    }
+}
+
+struct ObjectFieldsDisplay<'a>(&'a [ObjectField]);
+impl Display for ObjectFieldsDisplay<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut iter = self.0.iter();
+        if let Some(object_field) = iter.next() {
+            write!(f, "{}", object_field)?;
+            for field in iter {
+                write!(f, ",{}", field)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -333,6 +391,6 @@ mod tests {
         println!("{}", schema);
 
         let type_graph = TypeGraph::from(schema);
-        println!("{:#?}", type_graph);
+        println!("{}", type_graph);
     }
 }

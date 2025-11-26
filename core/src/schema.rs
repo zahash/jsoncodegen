@@ -273,38 +273,6 @@ impl FieldTypeAggregator {
     }
 
     fn merge_obj_fields(mut existing_fields: Vec<Field>, mut new_fields: Vec<Field>) -> Vec<Field> {
-        // let mut merged_fields = vec![];
-
-        // for existing_field in existing_fields {
-        //     match new_fields
-        //         .iter()
-        //         .find(|field| field.name == existing_field.name)
-        //     {
-        //         Some(matching_new_field) => {
-        //             let merged_ty = Self::merge(existing_field.ty, matching_new_field.ty.clone());
-        //             merged_fields.push(Field {
-        //                 name: existing_field.name,
-        //                 ty: merged_ty,
-        //             });
-        //         }
-        //         None => merged_fields.push(Field {
-        //             name: existing_field.name,
-        //             ty: match &existing_field.ty {
-        //                 FieldType::Unknown | FieldType::Optional(_) => existing_field.ty,
-        //                 _ => FieldType::Optional(Box::new(existing_field.ty)),
-        //             },
-        //         }),
-        //     }
-        // }
-
-        // for new_field in new_fields {
-        //     if !existing_fields.iter().any(|field| field.name == new_field.name) {
-        //         merged_fields.push(value);
-        //     }
-        // }
-
-        // merged_fields
-
         existing_fields = existing_fields
             .into_iter()
             .map(|mut existing_field| {

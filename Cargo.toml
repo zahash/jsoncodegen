@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["cli", "codegen", "core", "extra", "iota", "java", "rust", "sink", "web"]
 
 [profile.web]

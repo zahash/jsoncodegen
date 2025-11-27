@@ -1,9 +1,15 @@
-use std::{collections::BTreeMap, fmt::Display};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fmt::Display,
+};
 
 use jsoncodegen_iota::Iota;
 use serde_json::Value;
 
-use crate::schema::{Field, FieldType, Schema};
+use crate::{
+    name_registry::NameRegistry,
+    schema::{Field, FieldType, Schema},
+};
 
 pub type TypeId = usize;
 
@@ -298,61 +304,101 @@ impl TypeReducer {
     }
 }
 
+struct CanonicalView<'type_graph> {
+    type_graph: &'type_graph TypeGraph,
+    name_registry: NameRegistry<'type_graph>,
+}
+
+impl<'type_graph> From<&'type_graph TypeGraph> for CanonicalView<'type_graph> {
+    fn from(type_graph: &'type_graph TypeGraph) -> Self {
+        Self {
+            type_graph,
+            name_registry: NameRegistry::build(type_graph),
+        }
+    }
+}
+
+impl<'type_graph> CanonicalView<'type_graph> {
+    /// Format a type body for `type_id`. This does NOT print the label
+    /// (name or `#id`) for the node itself — the caller prints that.
+    fn fmt_type(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        type_id: TypeId,
+        visited: &mut HashSet<TypeId>,
+    ) -> std::fmt::Result {
+        if visited.contains(&type_id) {
+            return match self.name_registry.assigned_name(type_id) {
+                Some(name) => write!(f, "{}", name),
+                None => write!(f, "#{}", type_id),
+            };
+        }
+        visited.insert(type_id);
+
+        if let Some(type_def) = self.type_graph.nodes.get(&type_id) {
+            match type_def {
+                TypeDef::String => write!(f, "str")?,
+                TypeDef::Integer => write!(f, "int")?,
+                TypeDef::Float => write!(f, "float")?,
+                TypeDef::Boolean => write!(f, "bool")?,
+                TypeDef::Unknown => write!(f, "null")?,
+                TypeDef::Object(object_fields) => {
+                    write!(f, "{{")?;
+                    let mut iter = object_fields.iter();
+                    if let Some(object_field) = iter.next() {
+                        write!(f, "{}:", object_field.name)?;
+                        self.fmt_type(f, object_field.type_id, visited)?;
+
+                        for object_field in iter {
+                            write!(f, ", {}:", object_field.name)?;
+                            self.fmt_type(f, object_field.type_id, visited)?;
+                        }
+                    }
+                    write!(f, "}}")?;
+                }
+                TypeDef::Array(inner_type_id) => {
+                    write!(f, "[")?;
+                    self.fmt_type(f, *inner_type_id, visited)?;
+                    write!(f, "]")?;
+                }
+                TypeDef::Optional(inner_type_id) => {
+                    self.fmt_type(f, *inner_type_id, visited)?;
+                    write!(f, "?")?;
+                }
+                TypeDef::Union(inner_type_ids) => {
+                    for inner_type_id in inner_type_ids {
+                        write!(f, "|")?;
+                        self.fmt_type(f, *inner_type_id, visited)?;
+                    }
+                    write!(f, "|")?;
+                }
+            }
+        }
+
+        // Remove from stack so siblings can still visit it
+        // (we only want to detect cycles on the current path)
+        visited.remove(&type_id);
+        Ok(())
+    }
+}
+
+impl Display for CanonicalView<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Print the label for the root (name or fallback to id)
+        match self.name_registry.assigned_name(self.type_graph.root) {
+            Some(name) => write!(f, "{}:", name),
+            None => write!(f, "#{}:", self.type_graph.root),
+        }?;
+
+        // Then print the body of the root type
+        let mut visited = HashSet::new();
+        self.fmt_type(f, self.type_graph.root, &mut visited)
+    }
+}
+
 impl Display for TypeGraph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{};", self.root)?;
-
-        let mut iter = self.nodes.iter();
-        if let Some((type_id, type_def)) = iter.next() {
-            write!(f, "{}:{}", type_id, type_def)?;
-            for (type_id, type_def) in iter {
-                write!(f, ";{}:{}", type_id, type_def)?;
-            }
-        }
-        Ok(())
-    }
-}
-
-impl Display for TypeDef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TypeDef::String => write!(f, "str"),
-            TypeDef::Integer => write!(f, "int"),
-            TypeDef::Float => write!(f, "float"),
-            TypeDef::Boolean => write!(f, "bool"),
-            TypeDef::Unknown => write!(f, "null"),
-            TypeDef::Object(object_fields) => {
-                write!(f, "{{{}}}", ObjectFieldsDisplay(object_fields))
-            }
-            TypeDef::Union(inner_type_ids) => {
-                for type_id in inner_type_ids {
-                    write!(f, "|{}", type_id)?;
-                }
-                write!(f, "|")
-            }
-            TypeDef::Array(inner_type_id) => write!(f, "[{}]", inner_type_id),
-            TypeDef::Optional(inner_type_id) => write!(f, "{}?", inner_type_id),
-        }
-    }
-}
-
-impl Display for ObjectField {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.name, self.type_id)
-    }
-}
-
-struct ObjectFieldsDisplay<'a>(&'a [ObjectField]);
-impl Display for ObjectFieldsDisplay<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut iter = self.0.iter();
-        if let Some(object_field) = iter.next() {
-            write!(f, "{}", object_field)?;
-            for field in iter {
-                write!(f, ",{}", field)?;
-            }
-        }
-        Ok(())
+        writeln!(f, "{}", CanonicalView::from(self))
     }
 }
 
@@ -391,6 +437,7 @@ mod tests {
         println!("{}", schema);
 
         let type_graph = TypeGraph::from(schema);
+        println!("{:?}", type_graph);
         println!("{}", type_graph);
     }
 }

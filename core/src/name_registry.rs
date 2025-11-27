@@ -150,7 +150,7 @@ impl<'type_graph> NameResolver<'type_graph> {
                 visited[name_idx] = true;
                 if name_matched_to[name_idx].is_none()
                     || try_assign(
-                        name_matched_to[name_idx].unwrap(),
+                        name_matched_to[name_idx].unwrap(), // TODO: avoid unwrap
                         id_to_name_indices,
                         visited,
                         name_matched_to,

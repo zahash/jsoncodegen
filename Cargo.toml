@@ -1,6 +1,17 @@
 [workspace]
 resolver = "3"
-members = ["cli", "codegen", "core", "extra", "iota", "java", "rust", "sink", "web"]
+members = [
+    "cli",
+    "codegen",
+    "core",
+    "extra",
+    "iota",
+    "java",
+    "rust",
+    "sink",
+    "sink-console",
+    "web",
+]
 
 [profile.web]
 inherits = "release"
@@ -15,4 +26,4 @@ panic = "abort"     # Remove panic support, reducing code size
 # cargo install wasm-bindgen-cli
 # wasm-bindgen ./target/wasm32-unknown-unknown/web/jsoncodegen_web.wasm --out-dir ./pkg --target web
 
-# cargo install wit
+# cargo install wkg wit-bindgen-cli

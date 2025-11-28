@@ -1,7 +1,7 @@
 package zahash:jsoncodegen@0.1.0;
 
 interface sink-trait {
-    use wasi:io/streams@0.2.0.{output-stream};
+    use wasi:io/streams@0.2.8.{output-stream};
 
     resource sink {
         get-stream: func(name: string) -> result<output-stream, string>;

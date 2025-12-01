@@ -10,6 +10,7 @@ repository = "https://github.com/zahash/jsoncodegen/"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 serde_json = "1"
+wasi = "0.14"
+wit-bindgen = "0.48"
 
-jsoncodegen-java = { path = "../java" }
-jsoncodegen-rust = { path = "../rust" }
+jsoncodegen-dispatch = { path = "../dispatch" }

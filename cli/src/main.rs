@@ -1,21 +1,26 @@
-use clap::{Parser, Subcommand};
+use clap::Parser;
+use jsoncodegen_dispatch::dispatch;
 use serde_json::Value;
-use std::{error::Error, fs::File, io::BufReader};
+use std::{
+    error::Error,
+    fs::File,
+    io::{BufReader, Write, stdout},
+    path::PathBuf,
+};
 
 #[derive(Parser, Debug)]
 struct JSONCodeGen {
-    /// json filepath
+    /// input json filepath
     #[arg(short, long)]
     filepath: String,
 
-    #[command(subcommand)]
-    lang: Lang,
-}
+    /// codegen language
+    #[arg(long)]
+    lang: String,
 
-#[derive(Subcommand, Debug)]
-enum Lang {
-    Java,
-    Rust,
+    /// Optional output file; if omitted, prints to stdout
+    #[arg(short, long)]
+    output: Option<PathBuf>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -25,12 +30,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let reader = BufReader::new(file);
 
     let json: Value = serde_json::from_reader(reader)?;
-    let mut stdout = std::io::stdout().lock();
 
-    match args.lang {
-        Lang::Java => jsoncodegen_java::codegen(json, &mut stdout)?,
-        Lang::Rust => jsoncodegen_rust::codegen(json, &mut stdout)?,
+    let mut out: Box<dyn Write> = match args.output {
+        Some(output_filepath) => Box::new(File::create(output_filepath)?),
+        None => Box::new(stdout().lock()),
+    };
+
+    match dispatch(&args.lang, json, &mut out)? {
+        true => Ok(()),
+        false => Err(format!("`{}` language not supported", args.lang).into()),
     }
-
-    Ok(())
 }

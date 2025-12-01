@@ -2,14 +2,12 @@
 resolver = "3"
 members = [
     "cli",
-    "codegen",
+    "codegen-java",
+    "codegen-rust",
     "core",
+    "dispatch",
     "extra",
     "iota",
-    "java",
-    "rust",
-    "sink",
-    "sink-console",
     "web",
 ]
 
@@ -25,5 +23,3 @@ panic = "abort"     # Remove panic support, reducing code size
 
 # cargo install wasm-bindgen-cli
 # wasm-bindgen ./target/wasm32-unknown-unknown/web/jsoncodegen_web.wasm --out-dir ./pkg --target web
-
-# cargo install wkg wit-bindgen-cli

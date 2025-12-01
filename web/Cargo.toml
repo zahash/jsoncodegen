@@ -15,5 +15,4 @@ crate-type = ["cdylib"]
 serde_json = "1"
 wasm-bindgen = "0.2"
 
-jsoncodegen-java = { path = "../java" }
-jsoncodegen-rust = { path = "../rust" }
+jsoncodegen-dispatch = { path = "../dispatch" }

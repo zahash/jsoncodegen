@@ -1,25 +1,18 @@
+use jsoncodegen_dispatch::dispatch;
 use serde_json::Value;
-use std::io::Cursor;
 use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-pub enum Lang {
-    Java,
-    Rust,
-}
 
 // TODO: split this wasm bundle to multiple independent generators
 // that are lazily loaded when actually required
 #[wasm_bindgen]
-pub fn codegen(json: &str, lang: Lang) -> Result<String, JsValue> {
+pub fn codegen(json: &str, lang: &str) -> Result<String, JsValue> {
     let json: Value = serde_json::from_str(json).map_err(|e| e.to_string())?;
-    let mut out = Cursor::new(Vec::new());
+    let mut out = Vec::new();
 
-    match lang {
-        Lang::Java => jsoncodegen_java::codegen(json, &mut out).map_err(|e| e.to_string())?,
-        Lang::Rust => jsoncodegen_rust::codegen(json, &mut out).map_err(|e| e.to_string())?,
+    if !dispatch(lang, json, &mut out).map_err(|e| e.to_string())? {
+        return Err(format!("`{}` language not supported", lang).into());
     }
-    let code = String::from_utf8(out.into_inner()).map_err(|e| e.to_string())?;
 
+    let code = String::from_utf8(out).map_err(|e| e.to_string())?;
     Ok(code)
 }

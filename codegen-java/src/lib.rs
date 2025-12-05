@@ -45,6 +45,17 @@ impl From<serde_json::Value> for Java {
         let type_graph = TypeGraph::from(json);
         let name_registry = NameRegistry::build(&type_graph);
 
+        // TODO: root remains empty if top level json is array
+        // top level object for deserialization would be
+        // com.fasterxml.jackson.core.type.TypeReference
+        // maybe
+        //      objectMapper.readValue(json, new TypeReference<JsonCodeGen.Type6[]>() {})
+        // or
+        //      public static class Type7 extends TypeReference<Type6[]> {}
+        //      and then objectMapper.readValue(json, new JsonCodeGen.Type7())
+        // or
+        //      public static final TypeReference<Type6[]> Type7 = new TypeReference<>() {};
+        //      and then objectMapper.readValue(json, JsonCodeGen.Type7)
         let mut root = String::new();
         let mut classes = vec![];
         let mut unions = vec![];

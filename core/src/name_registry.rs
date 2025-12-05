@@ -74,27 +74,27 @@ impl<'type_graph> NameResolver<'type_graph> {
             match object_field_type_def {
                 TypeDef::Object(nested_object_fields) => {
                     let names = self.names.entry(object_field.type_id).or_default();
-                    names.push(&object_field.name);
-                    names.sort();
-                    names.dedup();
+                    if !names.contains(&object_field.name.as_str()) {
+                        names.push(&object_field.name);
+                    }
                     for nested_object_field in nested_object_fields {
                         self.resolve_object_field(nested_object_field, type_graph);
                     }
                 }
                 TypeDef::Union(inner_type_ids) => {
                     let names = self.names.entry(object_field.type_id).or_default();
-                    names.push(&object_field.name);
-                    names.sort();
-                    names.dedup();
+                    if !names.contains(&object_field.name.as_str()) {
+                        names.push(&object_field.name);
+                    }
                     for inner_type_id in inner_type_ids {
                         self.resolve_type_id(*inner_type_id, type_graph);
                     }
                 }
                 TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) => {
                     let names = self.names.entry(*inner_type_id).or_default();
-                    names.push(&object_field.name);
-                    names.sort();
-                    names.dedup();
+                    if !names.contains(&object_field.name.as_str()) {
+                        names.push(&object_field.name);
+                    }
                     self.resolve_type_id(*inner_type_id, type_graph);
                 }
                 _ => { /* no-op */ }

@@ -1,6 +1,11 @@
-use std::io;
+use std::{borrow::Cow, io};
 
-use jsoncodegen::{name_registry::NameRegistry, type_graph::TypeGraph};
+use convert_case::{Case, Casing};
+use jsoncodegen::{
+    name_registry::NameRegistry,
+    type_graph::{TypeDef, TypeGraph, TypeId},
+};
+use unicode_general_category::{GeneralCategory, get_general_category};
 
 pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> io::Result<()> {
     write(Java::from(json), out)
@@ -34,12 +39,208 @@ struct UnionMemberVar {
     type_name: String,
 }
 
+// TODO: avoid derive_ident or derive_type_name or any other function that
+// tries to sanitize the name.
+// just check if the name is_java_identifier and if not, use default values
+// like Type{type_id}, var{idx}, etc.
+// this is a much simpler approach and avoids any potential name clashes.
+
 impl From<serde_json::Value> for Java {
     fn from(json: serde_json::Value) -> Self {
         let type_graph = TypeGraph::from(json);
         let name_registry = NameRegistry::build(&type_graph);
 
-        todo!()
+        let mut classes = vec![];
+        let mut unions = vec![];
+
+        for (type_id, type_def) in &type_graph.nodes {
+            if let TypeDef::Object(object_fields) = type_def {
+                let class_name = derive_type_name(*type_id, &type_graph, &name_registry);
+
+                let mut vars: Vec<MemberVar> = Vec::with_capacity(object_fields.len());
+                for (idx, object_field) in object_fields.iter().enumerate() {
+                    let original_name = object_field.name.clone();
+                    let type_name =
+                        derive_type_name(object_field.type_id, &type_graph, &name_registry);
+                    let var_name = sanitize_to_java_identifier(&object_field.name)
+                        .map(|ident| ident.to_case(Case::Camel))
+                        .unwrap_or_else(|| format!("var{}", idx));
+                    let getter_name = format!("get{}", var_name.to_case(Case::Pascal));
+                    let setter_name = format!("set{}", var_name.to_case(Case::Pascal));
+
+                    vars.push(MemberVar {
+                        original_name,
+                        type_name,
+                        var_name,
+                        getter_name,
+                        setter_name,
+                    });
+                }
+
+                classes.push(Class {
+                    name: class_name,
+                    vars,
+                });
+            }
+
+            if let TypeDef::Union(inner_type_ids) = type_def {
+                let class_name = derive_type_name(*type_id, &type_graph, &name_registry);
+                let mut vars: Vec<UnionMemberVar> = Vec::with_capacity(inner_type_ids.len());
+
+                for inner_type_id in inner_type_ids {
+                    let type_name = derive_type_name(*inner_type_id, &type_graph, &name_registry);
+                    let var_name = match type_graph.nodes.get(inner_type_id) {
+                        Some(inner_type_def) => match inner_type_def {
+                            TypeDef::String => "strVal".into(),
+                            TypeDef::Integer => "intVal".into(),
+                            TypeDef::Float => "doubleVal".into(),
+                            TypeDef::Boolean => "boolVal".into(),
+                            TypeDef::Unknown => "objVal".into(),
+                            TypeDef::Object(_) => derive_ident(&name_registry, *inner_type_id)
+                                .map(|ident| ident.to_case(Case::Camel))
+                                .unwrap_or_else(|| format!("clazz{}", inner_type_id)),
+                            TypeDef::Union(_) => derive_ident(&name_registry, *inner_type_id)
+                                .map(|ident| ident.to_case(Case::Camel))
+                                .unwrap_or_else(|| format!("union{}", inner_type_id)),
+                            TypeDef::Array(_) => derive_ident(&name_registry, *inner_type_id)
+                                .map(|ident| ident.to_case(Case::Camel))
+                                .unwrap_or_else(|| format!("arr{}", inner_type_id)),
+                            TypeDef::Optional(_) => derive_ident(&name_registry, *inner_type_id)
+                                .map(|ident| ident.to_case(Case::Camel))
+                                .unwrap_or_else(|| format!("opt{}", inner_type_id)),
+                        },
+                        None => format!("variant{}", inner_type_id),
+                    };
+
+                    vars.push(UnionMemberVar {
+                        var_name,
+                        type_name,
+                    });
+                }
+
+                unions.push(Union {
+                    name: class_name,
+                    vars,
+                });
+            }
+        }
+
+        Self { classes, unions }
+    }
+}
+
+fn derive_ident<'type_graph, 'name_registry>(
+    name_registry: &'name_registry NameRegistry<'type_graph>,
+    type_id: TypeId,
+) -> Option<Cow<'type_graph, str>>
+where
+    'name_registry: 'type_graph,
+{
+    name_registry
+        .assigned_name(type_id)
+        .and_then(|s| sanitize_to_java_identifier(s))
+}
+
+fn derive_type_name(
+    type_id: TypeId,
+    type_graph: &TypeGraph,
+    name_registry: &NameRegistry,
+) -> String {
+    match type_graph.nodes.get(&type_id) {
+        Some(type_def) => match type_def {
+            TypeDef::String => "String".into(),
+            TypeDef::Integer => "Long".into(),
+            TypeDef::Float => "Double".into(),
+            TypeDef::Boolean => "Boolean".into(),
+            TypeDef::Unknown => "Object".into(),
+            TypeDef::Object(_) | TypeDef::Union(_) => {
+                let ident = derive_ident(&name_registry, type_id);
+                ident
+                    .map(|ident| ident.to_case(Case::Pascal))
+                    .unwrap_or_else(|| format!("Type{}", type_id))
+            }
+            TypeDef::Array(inner_type_id) => format!(
+                "{}[]",
+                derive_type_name(*inner_type_id, type_graph, name_registry)
+            ),
+            TypeDef::Optional(inner_type_id) => {
+                derive_type_name(*inner_type_id, type_graph, name_registry)
+            }
+        },
+        None => format!("Unknown{}", type_id),
+    }
+}
+
+fn sanitize_to_java_identifier<'input>(s: &'input str) -> Option<Cow<'input, str>> {
+    if is_java_identifier(s) {
+        return Some(Cow::Borrowed(s));
+    }
+
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars().skip_while(|c| !is_java_identifier_start(*c));
+    match chars.next() {
+        Some(first) => result.push(first),
+        None => return None,
+    }
+    result.extend(chars.filter(|c| is_java_identifier_part(*c)));
+
+    if result.is_empty() || is_java_reserved_word(&result) {
+        return None;
+    }
+    Some(Cow::Owned(result))
+}
+
+fn is_java_identifier(s: &str) -> bool {
+    if is_java_reserved_word(s) {
+        return false;
+    }
+
+    let mut chars = s.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+
+    is_java_identifier_start(first) && chars.all(is_java_identifier_part)
+}
+
+fn is_java_reserved_word(s: &str) -> bool {
+    // https://docs.oracle.com/javase/tutorial/java/nutsandbolts/_keywords.html
+    match s {
+        "abstract" | "assert" | "boolean" | "break" | "byte" | "case" | "catch" | "char"
+        | "class" | "const" | "continue" | "default" | "do" | "double" | "else" | "enum"
+        | "extends" | "false" | "final" | "finally" | "float" | "for" | "goto" | "if"
+        | "implements" | "import" | "instanceof" | "int" | "interface" | "long" | "native"
+        | "new" | "null" | "package" | "private" | "protected" | "public" | "return" | "short"
+        | "static" | "strictfp" | "super" | "switch" | "synchronized" | "this" | "throw"
+        | "throws" | "transient" | "true" | "try" | "void" | "volatile" | "while" => true,
+        _ => false,
+    }
+}
+
+fn is_java_identifier_start(ch: char) -> bool {
+    if ch.is_alphabetic() {
+        return true;
+    }
+
+    match get_general_category(ch) {
+        GeneralCategory::CurrencySymbol
+        | GeneralCategory::ConnectorPunctuation
+        | GeneralCategory::LetterNumber => true,
+        _ => false,
+    }
+}
+
+fn is_java_identifier_part(ch: char) -> bool {
+    if is_java_identifier_start(ch) || ch.is_ascii_digit() {
+        return true;
+    }
+
+    match get_general_category(ch) {
+        GeneralCategory::DecimalNumber
+        | GeneralCategory::SpacingMark
+        | GeneralCategory::NonspacingMark
+        | GeneralCategory::Format => true,
+        _ => false,
     }
 }
 
@@ -195,4 +396,37 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
     }
 
     writeln!(out, "}}")
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::stdout;
+
+    use super::*;
+
+    #[test]
+    fn test() {
+        let json = r#"
+        {
+            "val": 1,
+            "prev": {
+                "val": 2,
+                "prev": null,
+                "next": null
+            },
+            "next": {
+                "val": 3,
+                "prev": null,
+                "next": {
+                    "val": 4,
+                    "prev": null,
+                    "next": null
+                }
+            }
+        }        
+        "#;
+
+        let json = serde_json::from_str(json).expect("invalid json");
+        codegen(json, &mut stdout()).expect("unable to write to stdout");
+    }
 }

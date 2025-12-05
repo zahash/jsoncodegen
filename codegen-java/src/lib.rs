@@ -1,4 +1,4 @@
-use std::{borrow::Cow, io};
+use std::io;
 
 use convert_case::{Case, Casing};
 use jsoncodegen::{
@@ -39,12 +39,6 @@ struct UnionMemberVar {
     type_name: String,
 }
 
-// TODO: avoid derive_ident or derive_type_name or any other function that
-// tries to sanitize the name.
-// just check if the name is_java_identifier and if not, use default values
-// like Type{type_id}, var{idx}, etc.
-// this is a much simpler approach and avoids any potential name clashes.
-
 impl From<serde_json::Value> for Java {
     fn from(json: serde_json::Value) -> Self {
         let type_graph = TypeGraph::from(json);
@@ -62,9 +56,10 @@ impl From<serde_json::Value> for Java {
                     let original_name = object_field.name.clone();
                     let type_name =
                         derive_type_name(object_field.type_id, &type_graph, &name_registry);
-                    let var_name = sanitize_to_java_identifier(&object_field.name)
-                        .map(|ident| ident.to_case(Case::Camel))
-                        .unwrap_or_else(|| format!("var{}", idx));
+                    let var_name = match is_java_identifier(&object_field.name) {
+                        true => object_field.name.to_case(Case::Camel),
+                        false => format!("var{}", idx),
+                    };
                     let getter_name = format!("get{}", var_name.to_case(Case::Pascal));
                     let setter_name = format!("set{}", var_name.to_case(Case::Pascal));
 
@@ -96,16 +91,16 @@ impl From<serde_json::Value> for Java {
                             TypeDef::Float => "doubleVal".into(),
                             TypeDef::Boolean => "boolVal".into(),
                             TypeDef::Unknown => "objVal".into(),
-                            TypeDef::Object(_) => derive_ident(&name_registry, *inner_type_id)
+                            TypeDef::Object(_) => identifier(*inner_type_id, &name_registry)
                                 .map(|ident| ident.to_case(Case::Camel))
                                 .unwrap_or_else(|| format!("clazz{}", inner_type_id)),
-                            TypeDef::Union(_) => derive_ident(&name_registry, *inner_type_id)
+                            TypeDef::Union(_) => identifier(*inner_type_id, &name_registry)
                                 .map(|ident| ident.to_case(Case::Camel))
                                 .unwrap_or_else(|| format!("union{}", inner_type_id)),
-                            TypeDef::Array(_) => derive_ident(&name_registry, *inner_type_id)
+                            TypeDef::Array(_) => identifier(*inner_type_id, &name_registry)
                                 .map(|ident| ident.to_case(Case::Camel))
                                 .unwrap_or_else(|| format!("arr{}", inner_type_id)),
-                            TypeDef::Optional(_) => derive_ident(&name_registry, *inner_type_id)
+                            TypeDef::Optional(_) => identifier(*inner_type_id, &name_registry)
                                 .map(|ident| ident.to_case(Case::Camel))
                                 .unwrap_or_else(|| format!("opt{}", inner_type_id)),
                         },
@@ -129,16 +124,17 @@ impl From<serde_json::Value> for Java {
     }
 }
 
-fn derive_ident<'type_graph, 'name_registry>(
-    name_registry: &'name_registry NameRegistry<'type_graph>,
+fn identifier<'type_graph, 'name_registry>(
     type_id: TypeId,
-) -> Option<Cow<'type_graph, str>>
+    name_registry: &'name_registry NameRegistry<'type_graph>,
+) -> Option<&'type_graph str>
 where
     'name_registry: 'type_graph,
 {
-    name_registry
-        .assigned_name(type_id)
-        .and_then(|s| sanitize_to_java_identifier(s))
+    match name_registry.assigned_name(type_id) {
+        Some(name) if is_java_identifier(name) => Some(name),
+        _ => None,
+    }
 }
 
 fn derive_type_name(
@@ -153,12 +149,9 @@ fn derive_type_name(
             TypeDef::Float => "Double".into(),
             TypeDef::Boolean => "Boolean".into(),
             TypeDef::Unknown => "Object".into(),
-            TypeDef::Object(_) | TypeDef::Union(_) => {
-                let ident = derive_ident(&name_registry, type_id);
-                ident
-                    .map(|ident| ident.to_case(Case::Pascal))
-                    .unwrap_or_else(|| format!("Type{}", type_id))
-            }
+            TypeDef::Object(_) | TypeDef::Union(_) => identifier(type_id, &name_registry)
+                .map(|ident| ident.to_case(Case::Pascal))
+                .unwrap_or_else(|| format!("Type{}", type_id)),
             TypeDef::Array(inner_type_id) => format!(
                 "{}[]",
                 derive_type_name(*inner_type_id, type_graph, name_registry)
@@ -169,25 +162,6 @@ fn derive_type_name(
         },
         None => format!("Unknown{}", type_id),
     }
-}
-
-fn sanitize_to_java_identifier<'input>(s: &'input str) -> Option<Cow<'input, str>> {
-    if is_java_identifier(s) {
-        return Some(Cow::Borrowed(s));
-    }
-
-    let mut result = String::with_capacity(s.len());
-    let mut chars = s.chars().skip_while(|c| !is_java_identifier_start(*c));
-    match chars.next() {
-        Some(first) => result.push(first),
-        None => return None,
-    }
-    result.extend(chars.filter(|c| is_java_identifier_part(*c)));
-
-    if result.is_empty() || is_java_reserved_word(&result) {
-        return None;
-    }
-    Some(Cow::Owned(result))
 }
 
 fn is_java_identifier(s: &str) -> bool {

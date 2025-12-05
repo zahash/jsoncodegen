@@ -12,6 +12,7 @@ pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> io::Result<(
 }
 
 struct Java {
+    root: String,
     classes: Vec<Class>,
     unions: Vec<Union>,
 }
@@ -44,12 +45,16 @@ impl From<serde_json::Value> for Java {
         let type_graph = TypeGraph::from(json);
         let name_registry = NameRegistry::build(&type_graph);
 
+        let mut root = String::new();
         let mut classes = vec![];
         let mut unions = vec![];
 
         for (type_id, type_def) in &type_graph.nodes {
             if let TypeDef::Object(object_fields) = type_def {
                 let class_name = derive_type_name(*type_id, &type_graph, &name_registry);
+                if type_id == &type_graph.root {
+                    root = class_name.clone();
+                }
 
                 let mut vars: Vec<MemberVar> = Vec::with_capacity(object_fields.len());
                 for (idx, object_field) in object_fields.iter().enumerate() {
@@ -80,8 +85,11 @@ impl From<serde_json::Value> for Java {
 
             if let TypeDef::Union(inner_type_ids) = type_def {
                 let class_name = derive_type_name(*type_id, &type_graph, &name_registry);
-                let mut vars: Vec<UnionMemberVar> = Vec::with_capacity(inner_type_ids.len());
+                if type_id == &type_graph.root {
+                    root = class_name.clone();
+                }
 
+                let mut vars: Vec<UnionMemberVar> = Vec::with_capacity(inner_type_ids.len());
                 for inner_type_id in inner_type_ids {
                     let type_name = derive_type_name(*inner_type_id, &type_graph, &name_registry);
                     let var_name = match type_graph.nodes.get(inner_type_id) {
@@ -120,7 +128,11 @@ impl From<serde_json::Value> for Java {
             }
         }
 
-        Self { classes, unions }
+        Self {
+            root,
+            classes,
+            unions,
+        }
     }
 }
 
@@ -231,6 +243,7 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
     }
 
     writeln!(out, "public class JsonCodeGen {{")?;
+    writeln!(out, "\t// entry point = {}", java.root)?;
 
     for class in java.classes {
         writeln!(out, "\tpublic static class {} {{", class.name)?;
@@ -397,7 +410,7 @@ mod tests {
                     "next": null
                 }
             }
-        }        
+        }
         "#;
 
         let json = serde_json::from_str(json).expect("invalid json");

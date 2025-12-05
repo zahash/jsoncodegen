@@ -33,7 +33,7 @@ struct NameResolver<'type_graph> {
 impl<'type_graph> NameResolver<'type_graph> {
     fn resolve(type_graph: &'type_graph TypeGraph) -> Self {
         let mut name_resolver = Self::default();
-        // TODO: maybe assign 'root' to the root type id
+        name_resolver.names.insert(type_graph.root, vec!["root"]);
         name_resolver.resolve_type_id(type_graph.root, type_graph);
         name_resolver.assign_names();
         name_resolver

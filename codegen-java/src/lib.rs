@@ -236,10 +236,10 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
     }
 
     if !java.unions.is_empty() {
-        writeln!(out, "import java.io.IOException;")?;
         writeln!(out, "import com.fasterxml.jackson.core.*;")?;
         writeln!(out, "import com.fasterxml.jackson.databind.*;")?;
         writeln!(out, "import com.fasterxml.jackson.databind.annotation.*;")?;
+        writeln!(out, "import java.io.IOException;")?;
     }
 
     writeln!(out, "public class JsonCodeGen {{")?;

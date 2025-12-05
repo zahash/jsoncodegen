@@ -275,7 +275,7 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
             )?;
         }
 
-        writeln!(out, "}}")?;
+        writeln!(out, "\t}}")?;
     }
 
     for union in java.unions {

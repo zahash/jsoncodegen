@@ -176,7 +176,7 @@ fn derive_type_name(
             TypeDef::Float => "Double".into(),
             TypeDef::Boolean => "Boolean".into(),
             TypeDef::Unknown => "Object".into(),
-            TypeDef::Object(_) | TypeDef::Union(_) => identifier(type_id, &name_registry)
+            TypeDef::Object(_) | TypeDef::Union(_) => identifier(type_id, name_registry)
                 .map(|ident| ident.to_case(Case::Pascal))
                 .unwrap_or_else(|| format!("Type{}", type_id)),
             TypeDef::Array(inner_type_id) => format!(
@@ -223,12 +223,12 @@ fn is_java_identifier_start(ch: char) -> bool {
         return true;
     }
 
-    match get_general_category(ch) {
+    matches!(
+        get_general_category(ch),
         GeneralCategory::CurrencySymbol
-        | GeneralCategory::ConnectorPunctuation
-        | GeneralCategory::LetterNumber => true,
-        _ => false,
-    }
+            | GeneralCategory::ConnectorPunctuation
+            | GeneralCategory::LetterNumber
+    )
 }
 
 fn is_java_identifier_part(ch: char) -> bool {
@@ -236,13 +236,13 @@ fn is_java_identifier_part(ch: char) -> bool {
         return true;
     }
 
-    match get_general_category(ch) {
+    matches!(
+        get_general_category(ch),
         GeneralCategory::DecimalNumber
-        | GeneralCategory::SpacingMark
-        | GeneralCategory::NonspacingMark
-        | GeneralCategory::Format => true,
-        _ => false,
-    }
+            | GeneralCategory::SpacingMark
+            | GeneralCategory::NonspacingMark
+            | GeneralCategory::Format
+    )
 }
 
 fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {

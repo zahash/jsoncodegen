@@ -244,16 +244,16 @@ impl TypeReducer {
             });
         }
 
-        if let TypeDef::Optional(target_inner_type_id) = target_type_def {
-            if target_inner_type_id == &candidate.type_id {
-                return Some(target.clone());
-            }
+        if let TypeDef::Optional(target_inner_type_id) = target_type_def
+            && target_inner_type_id == &candidate.type_id
+        {
+            return Some(target.clone());
         }
 
-        if let TypeDef::Optional(candidate_inner_type_id) = candidate_type_def {
-            if candidate_inner_type_id == &target.type_id {
-                return Some(candidate.clone());
-            }
+        if let TypeDef::Optional(candidate_inner_type_id) = candidate_type_def
+            && candidate_inner_type_id == &target.type_id
+        {
+            return Some(candidate.clone());
         }
 
         if let (TypeDef::Optional(target_inner_type_id), TypeDef::Optional(candidate_inner_type_id)) =

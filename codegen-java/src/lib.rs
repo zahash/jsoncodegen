@@ -12,8 +12,14 @@ pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> io::Result<(
 }
 
 struct Java {
+    root: Option<Root>,
     classes: Vec<Class>,
     unions: Vec<Union>,
+}
+
+enum Root {
+    Object(String), // class name
+    Array(String),  // array item class name
 }
 
 struct Class {
@@ -44,13 +50,27 @@ impl From<serde_json::Value> for Java {
         let type_graph = TypeGraph::from(json);
         let name_registry = NameRegistry::build(&type_graph);
 
-        // TODO: root remains empty if top level json is array
-        // top level object for deserialization would be
-        // JsonCodeGen.Type6[].class
+        let mut root: Option<Root> = None;
         let mut classes = vec![];
         let mut unions = vec![];
 
         for (type_id, type_def) in &type_graph.nodes {
+            if *type_id == type_graph.root {
+                root = match type_def {
+                    TypeDef::Object(_) => Some(Root::Object(derive_type_name(
+                        *type_id,
+                        &type_graph,
+                        &name_registry,
+                    ))),
+                    TypeDef::Array(inner_type_id) => Some(Root::Array(derive_type_name(
+                        *inner_type_id,
+                        &type_graph,
+                        &name_registry,
+                    ))),
+                    _ => None,
+                };
+            }
+
             if let TypeDef::Object(object_fields) = type_def {
                 let class_name = derive_type_name(*type_id, &type_graph, &name_registry);
 
@@ -123,7 +143,11 @@ impl From<serde_json::Value> for Java {
             }
         }
 
-        Self { classes, unions }
+        Self {
+            root,
+            classes,
+            unions,
+        }
     }
 }
 
@@ -234,7 +258,25 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
     }
 
     writeln!(out, "public class JsonCodeGen {{")?;
-    writeln!(out, "\t// entry point = Root")?;
+
+    if let Some(root) = java.root {
+        writeln!(out, "\t// entry point")?;
+
+        // class with name ROOT (SCREAMING_SNAKE_CASE)
+        // will never clash with other classes (PascalCase)
+        match root {
+            Root::Object(class_name) => writeln!(
+                out,
+                "\tpublic static class ROOT extends {} {{}}",
+                class_name
+            ),
+            Root::Array(item_class_name) => writeln!(
+                out,
+                "\tpublic static class ROOT extends java.util.ArrayList<{}> {{}}",
+                item_class_name
+            ),
+        }?
+    }
 
     for class in java.classes {
         writeln!(out, "\tpublic static class {} {{", class.name)?;

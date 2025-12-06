@@ -231,7 +231,7 @@ fn is_java_identifier_start(ch: char) -> bool {
 
 fn is_java_identifier_part(ch: char) -> bool {
     is_java_identifier_start(ch)
-        && matches!(
+        || matches!(
             get_general_category(ch),
             GeneralCategory::DecimalNumber
                 | GeneralCategory::SpacingMark

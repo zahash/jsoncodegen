@@ -10,6 +10,10 @@ use jsoncodegen::{
 // current:  struct A { a: Option<A> }
 // expected: struct A { a: Option<Box<A>> }
 
+// break the cycle by introducing indirection like Box<>, Rc<>, &, etc...
+// current:  A { b: B }; B { c: C }; C { a: A }
+// expected: A { b: Box<B> }; B { c: C }; C { a: A }
+
 pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> io::Result<()> {
     write(Rust::from(json), out)
 }

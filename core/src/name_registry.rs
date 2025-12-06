@@ -188,70 +188,15 @@ mod tests {
 
     #[test]
     fn test() {
-        let json = r#"
-        {
-            "val": 1,
-            "prev": {
-                "val": 2,
-                "prev": null,
-                "next": null
-            },
-            "next": {
-                "val": 3,
-                "prev": null,
-                "next": {
-                    "val": 4,
-                    "prev": null,
-                    "next": null
-                }
-            }
-        }
-        "#;
-
-        // let json = r#"
-        //     {
-        //         "id": "123",
-        //         "name": "John Doe",
-        //         "email": "john.doe@example.com",
-        //         "address": {
-        //             "street": "123 Main St",
-        //             "city": "Anytown",
-        //             "state": "CA",
-        //             "zip": "12345"
-        //         }
-        //     }
-        //     "#;
-
-        // let json = r#"
-        //     {
-        //         "user": {
-        //             "id": 123,
-        //             "name": "Alice",
-        //             "email": "alice@example.com",
-        //             "verified": true,
-        //             "address": {
-        //                 "city": "London",
-        //                 "zip": 40512
-        //             }
-        //         },
-        //         "cart": [
-        //             {
-        //                 "sku": "SKU-123",
-        //                 "qty": 2,
-        //                 "price": 499.99,
-        //                 "metadata": null
-        //             },
-        //             {
-        //                 "sku": "SKU-999",
-        //                 "qty": 1,
-        //                 "price": 1299.50,
-        //                 "metadata": { "color": "red" }
-        //             }
-        //         ],
-        //         "payment": null,
-        //         "discount_codes": ["HOLIDAY", 2024, null]
-        //     }
-        //     "#;
+        // TODO: check generated code for the below two.
+        // { "discount_codes": ["HOLIDAY", 2024, null] }
+        // { "discount_codes": ["HOLIDAY", 2024] }
+        // if discount_codes: Vec<Option<T>> then name Option<T> : "discount_codes"
+        // if discount_codes: Vec<T> then name T : "discount_codes"
+        // naming Option<T> : "discount_codes" is a problem because
+        // during codegen, only objects and unions are considered
+        // and T doesn't have a name. only Option<T> does
+        let json = r#"{ "discount_codes": ["HOLIDAY", 2024, null] }"#;
 
         let json = serde_json::from_str::<serde_json::Value>(json).expect("invalid json");
         let type_graph = TypeGraph::from(json);

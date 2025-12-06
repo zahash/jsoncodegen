@@ -18,7 +18,13 @@ lto = true          # Enable Link Time Optimization (LTO)
 codegen-units = 1   # Forces the compiler to use a single code generation unit to improve optimizations
 panic = "abort"     # Remove panic support, reducing code size
 
-# cargo build -p jcg --release
+[profile.cli]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+
+# cargo build -p jcg --profile cli
 # cargo build -p jsoncodegen-web --target wasm32-unknown-unknown --profile web
 
 # cargo install wasm-bindgen-cli

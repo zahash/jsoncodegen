@@ -260,7 +260,7 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
     writeln!(out, "public class JsonCodeGen {{")?;
 
     if let Some(root) = java.root {
-        writeln!(out, "\t// entry point")?;
+        writeln!(out, "\t// entry point = ROOT")?;
 
         // class with name ROOT (SCREAMING_SNAKE_CASE)
         // will never clash with other classes (PascalCase)

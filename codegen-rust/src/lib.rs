@@ -6,6 +6,10 @@ use jsoncodegen::{
     type_graph::{TypeDef, TypeGraph, TypeId},
 };
 
+// TODO: box recursive types.
+// current:  struct A { a: Option<A> }
+// expected: struct A { a: Option<Box<A>> }
+
 pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> io::Result<()> {
     write(Rust::from(json), out)
 }

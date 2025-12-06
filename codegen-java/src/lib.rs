@@ -192,7 +192,7 @@ fn derive_type_name(
 }
 
 fn is_java_identifier(s: &str) -> bool {
-    if is_java_reserved_word(s) {
+    if is_java_keyword_or_literal(s) {
         return false;
     }
 
@@ -204,45 +204,46 @@ fn is_java_identifier(s: &str) -> bool {
     is_java_identifier_start(first) && chars.all(is_java_identifier_part)
 }
 
-fn is_java_reserved_word(s: &str) -> bool {
+fn is_java_keyword_or_literal(s: &str) -> bool {
     // https://docs.oracle.com/javase/tutorial/java/nutsandbolts/_keywords.html
     match s {
+        "_" | // Java 9+ single underscore is a keyword
+        "true" | "false" | "null" | // literals
+        // Keywords (JLS 3.9)
         "abstract" | "assert" | "boolean" | "break" | "byte" | "case" | "catch" | "char"
         | "class" | "const" | "continue" | "default" | "do" | "double" | "else" | "enum"
-        | "extends" | "false" | "final" | "finally" | "float" | "for" | "goto" | "if"
+        | "extends" | "final" | "finally" | "float" | "for" | "goto" | "if"
         | "implements" | "import" | "instanceof" | "int" | "interface" | "long" | "native"
-        | "new" | "null" | "package" | "private" | "protected" | "public" | "return" | "short"
+        | "new"  | "package" | "private" | "protected" | "public" | "return" | "short"
         | "static" | "strictfp" | "super" | "switch" | "synchronized" | "this" | "throw"
-        | "throws" | "transient" | "true" | "try" | "void" | "volatile" | "while" => true,
+        | "throws" | "transient" | "try" | "void" | "volatile" | "while" => true,
         _ => false,
     }
 }
 
 fn is_java_identifier_start(ch: char) -> bool {
-    if ch.is_alphabetic() {
-        return true;
-    }
-
     matches!(
         get_general_category(ch),
-        GeneralCategory::CurrencySymbol
-            | GeneralCategory::ConnectorPunctuation
+        GeneralCategory::UppercaseLetter
+            | GeneralCategory::LowercaseLetter
+            | GeneralCategory::TitlecaseLetter
+            | GeneralCategory::ModifierLetter
+            | GeneralCategory::OtherLetter
             | GeneralCategory::LetterNumber
+            | GeneralCategory::CurrencySymbol
+            | GeneralCategory::ConnectorPunctuation
     )
 }
 
 fn is_java_identifier_part(ch: char) -> bool {
-    if is_java_identifier_start(ch) || ch.is_ascii_digit() {
-        return true;
-    }
-
-    matches!(
-        get_general_category(ch),
-        GeneralCategory::DecimalNumber
-            | GeneralCategory::SpacingMark
-            | GeneralCategory::NonspacingMark
-            | GeneralCategory::Format
-    )
+    is_java_identifier_start(ch)
+        && matches!(
+            get_general_category(ch),
+            GeneralCategory::DecimalNumber
+                | GeneralCategory::SpacingMark
+                | GeneralCategory::NonspacingMark
+                | GeneralCategory::Format
+        )
 }
 
 fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {

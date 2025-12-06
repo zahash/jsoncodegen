@@ -1,42 +1,210 @@
 use std::io;
 
-use jsoncodegen::schema::{Field, FieldType, Schema};
-use jsoncodegen_extra::{to_pascal_case_or_unknown, to_snake_case_or_unknown};
-use jsoncodegen_iota::Iota;
+use convert_case::{Case, Casing};
+use jsoncodegen::{
+    name_registry::NameRegistry,
+    type_graph::{TypeDef, TypeGraph, TypeId},
+};
 
-pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> Result<(), io::Error> {
-    let schema = Schema::from(json);
-    let mut ctx = Context::new();
+pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> io::Result<()> {
+    write(Rust::from(json), out)
+}
+
+struct Rust {
+    root: String,
+    structs: Vec<Struct>,
+    enums: Vec<Enum>,
+}
+
+struct Struct {
+    name: String,
+    fields: Vec<StructField>,
+}
+
+struct Enum {
+    name: String,
+    variants: Vec<EnumVariant>,
+}
+
+struct StructField {
+    original_name: String,
+    var_name: String,
+    type_name: String,
+}
+
+struct EnumVariant {
+    variant_name: String,
+    associated_type: String,
+}
+
+impl From<serde_json::Value> for Rust {
+    fn from(json: serde_json::Value) -> Self {
+        let type_graph = TypeGraph::from(json);
+        let name_registry = NameRegistry::build(&type_graph);
+
+        let mut root = String::from("serde_json::Value");
+        let mut structs = vec![];
+        let mut enums = vec![];
+
+        for (type_id, type_def) in &type_graph.nodes {
+            if *type_id == type_graph.root {
+                match type_def {
+                    TypeDef::Object(_) => {
+                        root = derive_type_name(*type_id, &type_graph, &name_registry)
+                    }
+                    TypeDef::Array(inner_type_id) => {
+                        root = format!(
+                            "Vec<{}>",
+                            derive_type_name(*inner_type_id, &type_graph, &name_registry)
+                        )
+                    }
+                    _ => { /* no-op */ }
+                };
+            }
+
+            if let TypeDef::Object(object_fields) = type_def {
+                let struct_name = derive_type_name(*type_id, &type_graph, &name_registry);
+
+                let mut struct_fields: Vec<StructField> = Vec::with_capacity(object_fields.len());
+                for (idx, object_field) in object_fields.iter().enumerate() {
+                    let original_name = object_field.name.clone();
+                    let type_name =
+                        derive_type_name(object_field.type_id, &type_graph, &name_registry);
+                    let var_name = match is_rust_identifier(&object_field.name) {
+                        true => object_field.name.to_case(Case::Snake),
+                        false => format!("var_{}", idx),
+                    };
+
+                    struct_fields.push(StructField {
+                        original_name,
+                        type_name,
+                        var_name,
+                    });
+                }
+
+                structs.push(Struct {
+                    name: struct_name,
+                    fields: struct_fields,
+                });
+            }
+
+            if let TypeDef::Union(inner_type_ids) = type_def {
+                let enum_name = derive_type_name(*type_id, &type_graph, &name_registry);
+
+                let mut variants: Vec<EnumVariant> = Vec::with_capacity(inner_type_ids.len());
+                for inner_type_id in inner_type_ids {
+                    let variant_type =
+                        derive_type_name(*inner_type_id, &type_graph, &name_registry);
+                    let variant_name = match type_graph.nodes.get(inner_type_id) {
+                        Some(inner_type_def) => match inner_type_def {
+                            TypeDef::String => "String".into(),
+                            TypeDef::Integer => "Int".into(),
+                            TypeDef::Float => "Float".into(),
+                            TypeDef::Boolean => "Bool".into(),
+                            TypeDef::Unknown => "Unknown".into(),
+                            TypeDef::Object(_) => identifier(*inner_type_id, &name_registry)
+                                .map(|ident| ident.to_case(Case::Snake))
+                                .unwrap_or_else(|| format!("Object{}", inner_type_id)),
+                            TypeDef::Union(_) => identifier(*inner_type_id, &name_registry)
+                                .map(|ident| ident.to_case(Case::Snake))
+                                .unwrap_or_else(|| format!("Union{}", inner_type_id)),
+                            TypeDef::Array(_) => identifier(*inner_type_id, &name_registry)
+                                .map(|ident| ident.to_case(Case::Snake))
+                                .unwrap_or_else(|| format!("Array{}", inner_type_id)),
+                            TypeDef::Optional(_) => identifier(*inner_type_id, &name_registry)
+                                .map(|ident| ident.to_case(Case::Snake))
+                                .unwrap_or_else(|| format!("Optional{}", inner_type_id)),
+                        },
+                        None => format!("Variant{}", inner_type_id),
+                    };
+
+                    variants.push(EnumVariant {
+                        variant_name,
+                        associated_type: variant_type,
+                    });
+                }
+
+                enums.push(Enum {
+                    name: enum_name,
+                    variants,
+                });
+            }
+        }
+
+        Self {
+            root,
+            structs,
+            enums,
+        }
+    }
+}
+
+fn identifier<'type_graph, 'name_registry>(
+    type_id: TypeId,
+    name_registry: &'name_registry NameRegistry<'type_graph>,
+) -> Option<&'type_graph str>
+where
+    'name_registry: 'type_graph,
+{
+    match name_registry.assigned_name(type_id) {
+        Some(name) if is_rust_identifier(name) => Some(name),
+        _ => None,
+    }
+}
+
+fn derive_type_name(
+    type_id: TypeId,
+    type_graph: &TypeGraph,
+    name_registry: &NameRegistry,
+) -> String {
+    match type_graph.nodes.get(&type_id) {
+        Some(type_def) => match type_def {
+            TypeDef::String => "String".into(),
+            TypeDef::Integer => "isize".into(),
+            TypeDef::Float => "f64".into(),
+            TypeDef::Boolean => "bool".into(),
+            TypeDef::Unknown => "serde_json::Value".into(),
+            TypeDef::Object(_) | TypeDef::Union(_) => identifier(type_id, name_registry)
+                .map(|ident| ident.to_case(Case::Pascal))
+                .unwrap_or_else(|| format!("Type{}", type_id)),
+            TypeDef::Array(inner_type_id) => format!(
+                "Vec<{}>",
+                derive_type_name(*inner_type_id, type_graph, name_registry)
+            ),
+            TypeDef::Optional(inner_type_id) => format!(
+                "Option<{}>",
+                derive_type_name(*inner_type_id, type_graph, name_registry)
+            ),
+        },
+        None => format!("Unknown{}", type_id),
+    }
+}
+
+fn is_rust_identifier(s: &str) -> bool {
+    syn::parse_str::<syn::Ident>(s).is_ok()
+}
+
+fn write(rust: Rust, out: &mut dyn io::Write) -> io::Result<()> {
     writeln!(out, "use serde::{{Serialize, Deserialize}};")?;
 
-    match schema {
-        Schema::Object(fields) => ctx.add_struct("Root".into(), fields),
-        Schema::Array(ty) => {
-            let struct_field = ctx.process_field(Field {
-                name: "Item".into(),
-                ty,
-            });
-            ctx.add_alias("Root".into(), format!("Vec<{}>", struct_field.type_name));
-        }
-    };
+    // struct with name ROOT (SCREAMING_SNAKE_CASE)
+    // will never clash with other structs (PascalCase)
+    writeln!(out, "// entry point = ROOT")?;
+    writeln!(out, "pub type ROOT = {};", rust.root)?;
 
-    for def in ctx.aliases {
-        writeln!(out, "pub type {} = {};", def.name, def.ty)?;
-    }
-
-    for def in ctx.structs {
+    for def in rust.structs {
         writeln!(out, "#[derive(Serialize, Deserialize, Debug)]")?;
         writeln!(out, "pub struct {} {{", def.name)?;
         for field in def.fields {
-            if field.original_name != field.variable_name {
+            if field.original_name != field.var_name {
                 writeln!(out, "    #[serde(rename = \"{}\")]", field.original_name)?;
             }
-            writeln!(out, "    pub {}: {},", field.variable_name, field.type_name)?;
+            writeln!(out, "    pub {}: {},", field.var_name, field.type_name)?;
         }
         writeln!(out, "}}")?;
     }
 
-    for def in ctx.enums {
+    for def in rust.enums {
         writeln!(out, "#[derive(Serialize, Deserialize, Debug)]")?;
         writeln!(out, "pub enum {} {{", def.name)?;
         for variant in def.variants {
@@ -50,219 +218,4 @@ pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> Result<(), i
     }
 
     Ok(())
-}
-
-struct Context {
-    aliases: Vec<AliasDef>,
-    structs: Vec<StructDef>,
-    enums: Vec<EnumDef>,
-    iota: Iota,
-}
-
-struct StructDef {
-    name: String,
-    fields: Vec<StructField>,
-}
-
-struct EnumDef {
-    name: String,
-    variants: Vec<EnumVariant>,
-}
-
-struct AliasDef {
-    name: String,
-    ty: String,
-}
-
-struct StructField {
-    original_name: String,
-    variable_name: String,
-    type_name: String,
-}
-
-struct EnumVariant {
-    variant_name: String,
-    associated_type: String,
-}
-
-impl Context {
-    fn new() -> Self {
-        Self {
-            aliases: vec![],
-            structs: vec![],
-            enums: vec![],
-            iota: Iota::new(),
-        }
-    }
-
-    fn add_alias(&mut self, name: String, ty: String) {
-        self.aliases.push(AliasDef { name, ty });
-    }
-
-    fn add_struct(&mut self, name: String, fields: Vec<Field>) {
-        let mut def = StructDef {
-            name,
-            fields: vec![],
-        };
-
-        for field in fields {
-            def.fields.push(self.process_field(field));
-        }
-
-        // TODO
-        // struct field_name might have duplicates.
-        // eg: "123foo" and "fooあ" will both resolve to "foo"
-
-        self.structs.push(def);
-    }
-
-    fn add_enum(&mut self, name: String, variants: Vec<FieldType>) {
-        let mut def = EnumDef {
-            name: name.clone(),
-            variants: vec![],
-        };
-
-        for variant in variants {
-            def.variants
-                .push(self.process_enum_variant(name.clone(), variant));
-        }
-
-        self.enums.push(def);
-    }
-
-    fn process_field(&mut self, field: Field) -> StructField {
-        match field.ty {
-            FieldType::String => StructField {
-                variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
-                original_name: field.name,
-                type_name: "String".into(),
-            },
-            FieldType::Integer => StructField {
-                variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
-                original_name: field.name,
-                type_name: "isize".into(),
-            },
-            FieldType::Float => StructField {
-                variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
-                original_name: field.name,
-                type_name: "f64".into(),
-            },
-            FieldType::Boolean => StructField {
-                variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
-                original_name: field.name,
-                type_name: "bool".into(),
-            },
-            FieldType::Unknown => StructField {
-                variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
-                original_name: field.name,
-                type_name: "serde_json::Value".into(),
-            },
-            FieldType::Object(nested_fields) => {
-                let nested_struct_name = to_pascal_case_or_unknown(&field.name, &mut self.iota);
-                self.add_struct(nested_struct_name.clone(), nested_fields);
-                StructField {
-                    variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
-                    original_name: field.name,
-                    type_name: nested_struct_name,
-                }
-            }
-            FieldType::Union(types) => {
-                let nested_enum_name = to_pascal_case_or_unknown(&field.name, &mut self.iota);
-                self.add_enum(nested_enum_name.clone(), types);
-                StructField {
-                    variable_name: to_snake_case_or_unknown(&field.name, &mut self.iota),
-                    original_name: field.name,
-                    type_name: nested_enum_name,
-                }
-            }
-            FieldType::Array(ty) => {
-                let mut struct_field = self.process_field(Field {
-                    name: field.name,
-                    ty: *ty,
-                });
-                struct_field.type_name = format!("Vec<{}>", struct_field.type_name);
-                struct_field
-            }
-            FieldType::Optional(ty) => {
-                let mut struct_field = self.process_field(Field {
-                    name: field.name,
-                    ty: *ty,
-                });
-                struct_field.type_name = format!("Option<{}>", struct_field.type_name);
-                struct_field
-            }
-        }
-    }
-
-    fn process_enum_variant(&mut self, prefix: String, variant: FieldType) -> EnumVariant {
-        match variant {
-            FieldType::String => EnumVariant {
-                variant_name: "String".into(),
-                associated_type: "String".into(),
-            },
-            FieldType::Integer => EnumVariant {
-                variant_name: "Integer".into(),
-                associated_type: "isize".into(),
-            },
-            FieldType::Float => EnumVariant {
-                variant_name: "Float".into(),
-                associated_type: "f64".into(),
-            },
-            FieldType::Boolean => EnumVariant {
-                variant_name: "Boolean".into(),
-                associated_type: "bool".into(),
-            },
-            FieldType::Unknown => EnumVariant {
-                variant_name: "Unknown".into(),
-                associated_type: "serde_json::Value".into(),
-            },
-            FieldType::Object(fields) => {
-                let struct_field = self.process_field(Field {
-                    name: prefix + "Class",
-                    ty: FieldType::Object(fields),
-                });
-
-                EnumVariant {
-                    variant_name: struct_field.type_name.clone(),
-                    associated_type: struct_field.type_name,
-                }
-            }
-            FieldType::Union(types) => {
-                let struct_field = self.process_field(Field {
-                    name: prefix + "Element",
-                    ty: FieldType::Union(types),
-                });
-
-                EnumVariant {
-                    variant_name: struct_field.type_name.clone(),
-                    associated_type: struct_field.type_name,
-                }
-            }
-            FieldType::Array(ty) => {
-                let struct_field = self.process_field(Field {
-                    name: prefix + "Array",
-                    ty: FieldType::Array(ty),
-                });
-
-                EnumVariant {
-                    variant_name: to_pascal_case_or_unknown(
-                        &struct_field.variable_name,
-                        &mut self.iota,
-                    ),
-                    associated_type: struct_field.type_name,
-                }
-            }
-            FieldType::Optional(ty) => {
-                let struct_field = self.process_field(Field {
-                    name: prefix + "Optional",
-                    ty: FieldType::Optional(ty),
-                });
-
-                EnumVariant {
-                    variant_name: struct_field.type_name.clone(),
-                    associated_type: struct_field.type_name,
-                }
-            }
-        }
-    }
 }

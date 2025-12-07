@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, iter};
 
 use convert_case::{Case, Casing};
 use jsoncodegen::{
@@ -12,7 +12,7 @@ use jsoncodegen::{
 
 // break the cycle by introducing indirection like Box<>, Rc<>, &, etc...
 // current:  A { b: B }; B { c: C }; C { a: A }
-// expected: A { b: Box<B> }; B { c: C }; C { a: A }
+// expected: A { b: B }; B { c: C }; C { a: Box<A> }
 
 pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> io::Result<()> {
     write(Rust::from(json), out)
@@ -49,6 +49,7 @@ impl From<serde_json::Value> for Rust {
     fn from(json: serde_json::Value) -> Self {
         let type_graph = TypeGraph::from(json);
         let name_registry = NameRegistry::build(&type_graph);
+        let back_edges = back_edges(&type_graph);
 
         let mut root = String::from("serde_json::Value");
         let mut structs = vec![];
@@ -145,6 +146,39 @@ impl From<serde_json::Value> for Rust {
             enums,
         }
     }
+}
+
+fn back_edges(type_graph: &TypeGraph) -> Vec<(TypeId, TypeId)> {
+    let mut back_edges = vec![];
+
+    let mut path: Vec<TypeId> = vec![];
+    let mut frontier: Vec<TypeId> = vec![type_graph.root];
+
+    while let Some(type_id) = frontier.pop() {
+        path.push(type_id);
+        if let Some(type_def) = type_graph.nodes.get(&type_id) {
+            let adj_type_ids: Box<dyn Iterator<Item = usize>> = match type_def {
+                TypeDef::Object(object_fields) => Box::new(object_fields.iter().map(|f| f.type_id)),
+                TypeDef::Union(inner_type_ids) => Box::new(inner_type_ids.into_iter().copied()),
+                TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) => {
+                    Box::new(iter::once(*inner_type_id))
+                }
+                _ => Box::new(iter::empty()),
+            };
+
+            for adj_type_id in adj_type_ids {
+                match path.contains(&adj_type_id) {
+                    true => {
+                        back_edges.push((type_id, adj_type_id));
+                        path.pop();
+                    }
+                    false => frontier.push(adj_type_id),
+                }
+            }
+        }
+    }
+
+    back_edges
 }
 
 fn identifier<'type_graph, 'name_registry>(

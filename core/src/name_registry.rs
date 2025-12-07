@@ -117,6 +117,8 @@ impl<'type_graph> NameResolver<'type_graph> {
 
     /// Performs maximum assignment of unique names to ids using a DFS-based
     /// augmenting-path algorithm (Kuhn). Result is stored in `self.assigned_names`.
+    /// TODO: use network max flow algorithms like ford-fulkerson or edmonds-karp
+    /// for maximum bipartite matching
     fn assign_names(&mut self) {
         // Deterministic left side order (ids)
         let ids_order: Vec<usize> = self.names.keys().copied().collect();

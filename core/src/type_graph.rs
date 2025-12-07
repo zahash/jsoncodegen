@@ -214,6 +214,48 @@ impl TypeReducer {
             .collect()
     }
 
+    /*
+    TODO:
+    {
+        "name": "Root",
+        "children": [
+            {
+                "name": "Child1",
+                "children": []
+            }
+        ]
+    }
+
+    it generates this right now
+
+    use serde::{Serialize, Deserialize};
+
+    pub type ROOT = Type5;
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Type3 {
+        pub children: Vec<serde_json::Value>,
+        pub name: String,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Type5 {
+        pub children: Vec<Type3>,
+        pub name: String,
+    }
+
+    but it should have generated this
+
+    use serde::{Serialize, Deserialize};
+
+    pub type ROOT = Type3;
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Type3 {
+        pub children: Vec<Type3>,
+        pub name: String,
+    }
+    */
     fn merge_object_field(
         &mut self,
         target: &ObjectField,

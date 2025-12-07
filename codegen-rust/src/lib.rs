@@ -6,14 +6,6 @@ use jsoncodegen::{
     type_graph::{TypeDef, TypeGraph, TypeId},
 };
 
-// TODO: box recursive types.
-// current:  struct A { a: Option<A> }
-// expected: struct A { a: Option<Box<A>> }
-
-// break the cycle by introducing indirection like Box<>, Rc<>, &, etc...
-// current:  A { b: B }; B { c: C }; C { a: A }
-// expected: A { b: B }; B { c: C }; C { a: Box<A> }
-
 pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> io::Result<()> {
     write(Rust::from(json), out)
 }
@@ -59,12 +51,24 @@ impl From<serde_json::Value> for Rust {
             if *type_id == type_graph.root {
                 match type_def {
                     TypeDef::Object(_) => {
-                        root = derive_type_name(*type_id, &type_graph, &name_registry)
+                        root = derive_type_name(
+                            *type_id,
+                            &type_graph,
+                            &name_registry,
+                            *type_id,
+                            &back_edges,
+                        )
                     }
                     TypeDef::Array(inner_type_id) => {
                         root = format!(
                             "Vec<{}>",
-                            derive_type_name(*inner_type_id, &type_graph, &name_registry)
+                            derive_type_name(
+                                *inner_type_id,
+                                &type_graph,
+                                &name_registry,
+                                *type_id,
+                                &back_edges
+                            )
                         )
                     }
                     _ => { /* no-op */ }
@@ -72,13 +76,20 @@ impl From<serde_json::Value> for Rust {
             }
 
             if let TypeDef::Object(object_fields) = type_def {
-                let struct_name = derive_type_name(*type_id, &type_graph, &name_registry);
+                let struct_name = identifier(*type_id, &name_registry)
+                    .map(|ident| ident.to_case(Case::Pascal))
+                    .unwrap_or_else(|| format!("Type{}", type_id));
 
                 let mut struct_fields: Vec<StructField> = Vec::with_capacity(object_fields.len());
                 for (idx, object_field) in object_fields.iter().enumerate() {
                     let original_name = object_field.name.clone();
-                    let type_name =
-                        derive_type_name(object_field.type_id, &type_graph, &name_registry);
+                    let type_name = derive_type_name(
+                        object_field.type_id,
+                        &type_graph,
+                        &name_registry,
+                        *type_id,
+                        &back_edges,
+                    );
                     let var_name = match is_rust_identifier(&object_field.name) {
                         true => object_field.name.to_case(Case::Snake),
                         false => format!("var_{}", idx),
@@ -98,12 +109,19 @@ impl From<serde_json::Value> for Rust {
             }
 
             if let TypeDef::Union(inner_type_ids) = type_def {
-                let enum_name = derive_type_name(*type_id, &type_graph, &name_registry);
+                let enum_name = identifier(*type_id, &name_registry)
+                    .map(|ident| ident.to_case(Case::Pascal))
+                    .unwrap_or_else(|| format!("Type{}", type_id));
 
                 let mut variants: Vec<EnumVariant> = Vec::with_capacity(inner_type_ids.len());
                 for inner_type_id in inner_type_ids {
-                    let variant_type =
-                        derive_type_name(*inner_type_id, &type_graph, &name_registry);
+                    let variant_type = derive_type_name(
+                        *inner_type_id,
+                        &type_graph,
+                        &name_registry,
+                        *type_id,
+                        &back_edges,
+                    );
                     let variant_name = match type_graph.nodes.get(inner_type_id) {
                         Some(inner_type_def) => match inner_type_def {
                             TypeDef::String => "String".into(),
@@ -198,6 +216,8 @@ fn derive_type_name(
     type_id: TypeId,
     type_graph: &TypeGraph,
     name_registry: &NameRegistry,
+    parent_type_id: TypeId,
+    back_edges: &[(TypeId, TypeId)],
 ) -> String {
     match type_graph.nodes.get(&type_id) {
         Some(type_def) => match type_def {
@@ -206,17 +226,38 @@ fn derive_type_name(
             TypeDef::Float => "f64".into(),
             TypeDef::Boolean => "bool".into(),
             TypeDef::Unknown => "serde_json::Value".into(),
-            TypeDef::Object(_) | TypeDef::Union(_) => identifier(type_id, name_registry)
-                .map(|ident| ident.to_case(Case::Pascal))
-                .unwrap_or_else(|| format!("Type{}", type_id)),
+            TypeDef::Object(_) | TypeDef::Union(_) => {
+                let mut ident = identifier(type_id, name_registry)
+                    .map(|ident| ident.to_case(Case::Pascal))
+                    .unwrap_or_else(|| format!("Type{}", type_id));
+                if back_edges.contains(&(parent_type_id, type_id)) {
+                    ident = format!("Box<{}>", ident);
+                }
+                ident
+            }
             TypeDef::Array(inner_type_id) => format!(
                 "Vec<{}>",
-                derive_type_name(*inner_type_id, type_graph, name_registry)
+                derive_type_name(
+                    *inner_type_id,
+                    type_graph,
+                    name_registry,
+                    type_id,
+                    back_edges
+                )
             ),
-            TypeDef::Optional(inner_type_id) => format!(
-                "Option<{}>",
-                derive_type_name(*inner_type_id, type_graph, name_registry)
-            ),
+            TypeDef::Optional(inner_type_id) => {
+                let mut inner_type_name = derive_type_name(
+                    *inner_type_id,
+                    type_graph,
+                    name_registry,
+                    type_id,
+                    back_edges,
+                );
+                if back_edges.contains(&(parent_type_id, type_id)) {
+                    inner_type_name = format!("Box<{}>", inner_type_name);
+                }
+                format!("Option<{}>", inner_type_name)
+            }
         },
         None => format!("Unknown{}", type_id),
     }

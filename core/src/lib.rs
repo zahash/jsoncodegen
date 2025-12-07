@@ -2,5 +2,6 @@ pub mod name_registry;
 pub mod schema;
 pub mod type_graph;
 
-// TODO: make schema, type_graph, etc... sorted according to keys, types, names, etc...
-// TODO: group primitive types into a nested enum
+// TODO: use indexmap to preserve insertion order or not? maybe keep them sorted
+// TODO: write code to parse the display string of schema and type_graph into the respective types.
+//          ideally keep it under #[cfg(test)]

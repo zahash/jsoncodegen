@@ -90,15 +90,29 @@ impl<'type_graph> NameResolver<'type_graph> {
                     }
                 }
                 TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) => {
-                    let names = self.names.entry(*inner_type_id).or_default();
+                    let inner_type_id = Self::naming_target(*inner_type_id, type_graph);
+                    let names = self.names.entry(inner_type_id).or_default();
                     if !names.contains(&object_field.name.as_str()) {
                         names.push(&object_field.name);
                     }
-                    self.resolve_type_id(*inner_type_id, type_graph);
+                    self.resolve_type_id(inner_type_id, type_graph);
                 }
                 _ => { /* no-op */ }
             }
         }
+    }
+
+    fn naming_target(mut type_id: TypeId, type_graph: &TypeGraph) -> TypeId {
+        let mut visited = vec![];
+        while !visited.contains(&type_id) {
+            visited.push(type_id);
+            if let Some(type_def) = type_graph.nodes.get(&type_id) {
+                if let TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) = type_def {
+                    type_id = *inner_type_id;
+                }
+            }
+        }
+        type_id
     }
 
     /// Performs maximum assignment of unique names to ids using a DFS-based
@@ -188,14 +202,6 @@ mod tests {
 
     #[test]
     fn test() {
-        // TODO: check generated code for the below two.
-        // { "discount_codes": ["HOLIDAY", 2024, null] }
-        // { "discount_codes": ["HOLIDAY", 2024] }
-        // if discount_codes: Vec<Option<T>> then name Option<T> : "discount_codes"
-        // if discount_codes: Vec<T> then name T : "discount_codes"
-        // naming Option<T> : "discount_codes" is a problem because
-        // during codegen, only objects and unions are considered
-        // and T doesn't have a name. only Option<T> does
         let json = r#"{ "discount_codes": ["HOLIDAY", 2024, null] }"#;
 
         let json = serde_json::from_str::<serde_json::Value>(json).expect("invalid json");

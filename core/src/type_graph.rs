@@ -21,15 +21,16 @@ pub struct TypeGraph {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TypeDef {
-    String,
+    Unknown,
+    Null,
+    Boolean,
     Integer,
     Float,
-    Boolean,
-    Unknown,
-    Object(Vec<ObjectField>),
-    Union(Vec<TypeId>),
+    String,
     Array(TypeId),
+    Object(Vec<ObjectField>),
     Optional(TypeId),
+    Union(Vec<TypeId>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -47,9 +48,21 @@ impl From<Value> for TypeGraph {
 
 impl From<Schema> for TypeGraph {
     fn from(schema: Schema) -> Self {
-        let type_graph = GraphBuilder::new().process_schema(&schema);
-        let reduced_type_graph = TypeReducer::new().reduce(type_graph);
+        let type_graph: TypeGraph = GraphBuilder::build(schema);
+        let reduced_type_graph: TypeGraph = TypeReducer::reduce(type_graph);
         reduced_type_graph
+    }
+}
+
+/// Canonicalize the type definition to ensure structural equality.
+/// This allows deduplication: semantically identical types with different
+/// orderings (e.g., `Union([1,2])` vs `Union([2,1]))` are treated as the same type.
+fn canonicalize(type_def: &mut TypeDef) {
+    if let TypeDef::Object(fields) = type_def {
+        fields.sort_by(|a, b| a.name.cmp(&b.name));
+    }
+    if let TypeDef::Union(type_ids) = type_def {
+        type_ids.sort();
     }
 }
 
@@ -61,66 +74,65 @@ struct GraphBuilder {
 }
 
 impl GraphBuilder {
-    fn new() -> Self {
-        Self::default()
-    }
+    fn build(schema: Schema) -> TypeGraph {
+        let mut builder = GraphBuilder::default();
 
-    fn process_schema(mut self, schema: &Schema) -> TypeGraph {
         let root_type_id = match schema {
-            Schema::Object(fields) => self.process_fields(fields),
+            Schema::Object(fields) => builder.process_fields(fields),
             Schema::Array(field_type) => {
-                let inner_type_id = self.process_field_type(field_type);
-                self.intern(TypeDef::Array(inner_type_id))
+                let inner_type_id = builder.process_field_type(field_type);
+                builder.intern(TypeDef::Array(inner_type_id))
             }
         };
 
         TypeGraph {
             root: root_type_id,
-            nodes: self.nodes,
+            nodes: builder.nodes,
         }
     }
 
-    fn process_field_type(&mut self, field_type: &FieldType) -> TypeId {
+    fn process_field_type(&mut self, field_type: FieldType) -> TypeId {
         match field_type {
             FieldType::String => self.intern(TypeDef::String),
             FieldType::Integer => self.intern(TypeDef::Integer),
             FieldType::Float => self.intern(TypeDef::Float),
             FieldType::Boolean => self.intern(TypeDef::Boolean),
+            FieldType::Null => self.intern(TypeDef::Null),
             FieldType::Unknown => self.intern(TypeDef::Unknown),
             FieldType::Object(fields) => self.process_fields(fields),
             FieldType::Union(field_types) => {
-                let mut type_ids: Vec<TypeId> = field_types
-                    .iter()
+                let type_ids: Vec<TypeId> = field_types
+                    .into_iter()
                     .map(|ty| self.process_field_type(ty))
                     .collect();
-                type_ids.sort();
                 self.intern(TypeDef::Union(type_ids))
             }
             FieldType::Array(inner_field_type) => {
-                let inner_type_id = self.process_field_type(inner_field_type);
+                let inner_type_id = self.process_field_type(*inner_field_type);
                 self.intern(TypeDef::Array(inner_type_id))
             }
             FieldType::Optional(inner_field_type) => {
-                let inner_type_id = self.process_field_type(inner_field_type);
+                let inner_type_id = self.process_field_type(*inner_field_type);
                 self.intern(TypeDef::Optional(inner_type_id))
             }
         }
     }
 
-    fn process_fields(&mut self, fields: &[Field]) -> TypeId {
-        let mut obj_fields = Vec::with_capacity(fields.len());
-        for field in fields {
-            obj_fields.push(ObjectField {
-                name: field.name.clone(),
-                type_id: self.process_field_type(&field.ty),
-            });
-        }
-        obj_fields.sort_by(|a, b| a.name.cmp(&b.name));
+    fn process_fields(&mut self, fields: Vec<Field>) -> TypeId {
+        let obj_fields: Vec<ObjectField> = fields
+            .into_iter()
+            .map(|field| ObjectField {
+                name: field.name,
+                type_id: self.process_field_type(field.ty),
+            })
+            .collect();
 
         self.intern(TypeDef::Object(obj_fields))
     }
 
-    fn intern(&mut self, type_def: TypeDef) -> TypeId {
+    fn intern(&mut self, mut type_def: TypeDef) -> TypeId {
+        canonicalize(&mut type_def);
+
         match self.cache.get(&type_def) {
             Some(type_id) => *type_id,
             None => {
@@ -142,23 +154,21 @@ struct TypeReducer {
 }
 
 impl TypeReducer {
-    fn new() -> Self {
-        Self::default()
-    }
+    fn reduce(type_graph: TypeGraph) -> TypeGraph {
+        let mut reducer = TypeReducer::default();
 
-    fn reduce(mut self, type_graph: TypeGraph) -> TypeGraph {
         for (type_id, mut type_def) in type_graph.nodes {
-            self.remap_type_def(&mut type_def);
-            let reduced_type_id = self.reduce_type_def(type_def);
-            self.remaps.push((type_id, reduced_type_id));
+            reducer.remap_type_def(&mut type_def);
+            let reduced_type_id = reducer.reduce_type_def(type_def);
+            reducer.remaps.push((type_id, reduced_type_id));
         }
 
         let mut root = type_graph.root;
-        self.remap_type_id(&mut root);
+        reducer.remap_type_id(&mut root);
 
         TypeGraph {
             root,
-            nodes: self.reduced_nodes,
+            nodes: reducer.reduced_nodes,
         }
     }
 
@@ -186,6 +196,7 @@ impl TypeReducer {
             | TypeDef::Integer
             | TypeDef::Float
             | TypeDef::Boolean
+            | TypeDef::Null
             | TypeDef::Unknown
             | TypeDef::Union(_)
             | TypeDef::Array(_)
@@ -272,14 +283,24 @@ impl TypeReducer {
         let target_type_def = self.reduced_nodes.get(&target.type_id)?;
         let candidate_type_def = self.reduced_nodes.get(&candidate.type_id)?;
 
+        // Unknown represents lack of information, so it adopts the concrete type
         if let TypeDef::Unknown = target_type_def {
+            return Some(candidate.clone());
+        }
+
+        if let TypeDef::Unknown = candidate_type_def {
+            return Some(target.clone());
+        }
+
+        // Null represents an explicit null value, so it creates Optional
+        if let TypeDef::Null = target_type_def {
             return Some(ObjectField {
                 name: candidate.name.clone(),
                 type_id: self.intern(TypeDef::Optional(candidate.type_id)),
             });
         }
 
-        if let TypeDef::Unknown = candidate_type_def {
+        if let TypeDef::Null = candidate_type_def {
             return Some(ObjectField {
                 name: target.name.clone(),
                 type_id: self.intern(TypeDef::Optional(target.type_id)),
@@ -308,7 +329,9 @@ impl TypeReducer {
         None
     }
 
-    fn intern(&mut self, type_def: TypeDef) -> TypeId {
+    fn intern(&mut self, mut type_def: TypeDef) -> TypeId {
+        canonicalize(&mut type_def);
+
         match self.cache.get(&type_def) {
             Some(type_id) => *type_id,
             None => {
@@ -383,7 +406,8 @@ impl<'type_graph> CanonicalView<'type_graph> {
                 TypeDef::Integer => write!(f, "int")?,
                 TypeDef::Float => write!(f, "float")?,
                 TypeDef::Boolean => write!(f, "bool")?,
-                TypeDef::Unknown => write!(f, "null")?,
+                TypeDef::Null => write!(f, "null")?,
+                TypeDef::Unknown => write!(f, "unknown")?,
                 TypeDef::Object(object_fields) => {
                     write!(f, "{{")?;
                     let mut iter = object_fields.iter();

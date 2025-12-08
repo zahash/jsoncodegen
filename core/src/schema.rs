@@ -1,5 +1,5 @@
 use serde_json::{Map, Value};
-use std::{fmt::Display, ops::Deref};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Schema {
@@ -15,24 +15,69 @@ pub struct Field {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FieldType {
-    String,
+    Unknown, // Represents a truly unknown/uninferred type (e.g., from an empty array `[]`)
+    Null,    // Represents an explicit JSON `null` value
+    Boolean,
     Integer,
     Float,
-    Boolean,
-    Unknown,
-    Object(Vec<Field>),
-    Union(Vec<FieldType>),
+    String,
     Array(Box<FieldType>),
+    Object(Vec<Field>),
     Optional(Box<FieldType>),
+    Union(Vec<FieldType>),
 }
 
 impl From<Value> for Schema {
     fn from(json: Value) -> Self {
-        match json {
+        let mut schema = match json {
             Value::Array(arr) => Self::Array(array(arr)),
             Value::Object(obj) => Self::Object(object(obj)),
             _ => unreachable!("Valid top level Value will always be object or array"),
+        };
+
+        // sort schema to make sure it has a deterministic order
+        match &mut schema {
+            Schema::Object(fields) => sort_fields(fields),
+            Schema::Array(field_type) => sort_field_type(field_type),
         }
+
+        schema
+    }
+}
+
+fn sort_fields(fields: &mut [Field]) {
+    fields.sort_by(|a, b| a.name.cmp(&b.name));
+    for field in fields {
+        sort_field_type(&mut field.ty);
+    }
+}
+
+fn sort_field_types(field_types: &mut [FieldType]) {
+    field_types.sort_by_key(|t| match t {
+        FieldType::Unknown => 0,
+        FieldType::Null => 1,
+        FieldType::Boolean => 2, // Simplest primitive type
+        FieldType::Integer => 3, // Numeric types ordered by specificity
+        FieldType::Float => 4,   // More general numeric type
+        FieldType::String => 5,
+        FieldType::Array(_) => 6, // Collection types before complex structures
+        FieldType::Object(_) => 7, // Complex structured type
+        FieldType::Optional(_) => 8, // Wrapper types that modify other types
+        FieldType::Union(_) => 9, // Most complex - union of multiple types
+    });
+    for field_type in field_types {
+        sort_field_type(field_type);
+    }
+}
+
+fn sort_field_type(field_type: &mut FieldType) {
+    match field_type {
+        FieldType::Object(fields) => sort_fields(fields),
+        FieldType::Union(field_types) => sort_field_types(field_types),
+        FieldType::Array(inner_field_type) | FieldType::Optional(inner_field_type) => {
+            sort_field_type(inner_field_type)
+        }
+        _ => {}
     }
 }
 
@@ -50,55 +95,87 @@ fn object(obj: Map<String, Value>) -> Vec<Field> {
 }
 
 struct FieldTypeAggregator {
-    ty: Option<FieldType>,
+    ty: FieldType,
 }
 
 impl FieldTypeAggregator {
     fn new() -> Self {
-        Self { ty: None }
+        Self {
+            ty: FieldType::Unknown,
+        }
     }
 
     fn add(&mut self, field_type: FieldType) {
-        match self.ty.take() {
-            None => self.ty = Some(field_type),
-            Some(ty) => self.ty = Some(Self::merge(ty, field_type)),
-        };
+        self.ty = Self::merge(
+            std::mem::replace(&mut self.ty, FieldType::Unknown),
+            field_type,
+        );
     }
 
     fn finalize(self) -> FieldType {
-        self.ty.unwrap_or(FieldType::Unknown)
+        self.ty
     }
 
     fn merge(existing: FieldType, new: FieldType) -> FieldType {
         match (existing, new) {
-            (FieldType::String, FieldType::String) => FieldType::String,
+            (FieldType::Unknown, FieldType::Unknown) => FieldType::Unknown,
+            (FieldType::Null, FieldType::Null) => FieldType::Null,
+
+            (FieldType::Boolean, FieldType::Boolean) => FieldType::Boolean,
             (FieldType::Integer, FieldType::Integer) => FieldType::Integer,
             (FieldType::Float, FieldType::Float) => FieldType::Float,
-            (FieldType::Boolean, FieldType::Boolean) => FieldType::Boolean,
-            (FieldType::Unknown, FieldType::Unknown) => FieldType::Unknown,
+            (FieldType::String, FieldType::String) => FieldType::String,
 
-            (FieldType::String, FieldType::Integer) | (FieldType::Integer, FieldType::String) => {
-                FieldType::Union(vec![FieldType::String, FieldType::Integer])
+            // Unknown represents lack of information, so it adopts the concrete type
+            (ty, FieldType::Unknown) | (FieldType::Unknown, ty) => ty,
+
+            // Null indicates absence of value, so it makes the type optional
+            (ty, FieldType::Null) | (FieldType::Null, ty) => match ty {
+                FieldType::Optional(_) => ty,
+                _ => FieldType::Optional(Box::new(ty)),
+            },
+
+            // Primitive, Primitive
+            (FieldType::Boolean, FieldType::Integer) | (FieldType::Integer, FieldType::Boolean) => {
+                FieldType::Union(vec![FieldType::Boolean, FieldType::Integer])
             }
-            (FieldType::String, FieldType::Float) | (FieldType::Float, FieldType::String) => {
-                FieldType::Union(vec![FieldType::String, FieldType::Float])
+            (FieldType::Boolean, FieldType::Float) | (FieldType::Float, FieldType::Boolean) => {
+                FieldType::Union(vec![FieldType::Boolean, FieldType::Float])
             }
-            (FieldType::String, FieldType::Boolean) | (FieldType::Boolean, FieldType::String) => {
-                FieldType::Union(vec![FieldType::String, FieldType::Boolean])
+            (FieldType::Boolean, FieldType::String) | (FieldType::String, FieldType::Boolean) => {
+                FieldType::Union(vec![FieldType::Boolean, FieldType::String])
             }
             (FieldType::Integer, FieldType::Float) | (FieldType::Float, FieldType::Integer) => {
                 FieldType::Union(vec![FieldType::Integer, FieldType::Float])
             }
-            (FieldType::Integer, FieldType::Boolean) | (FieldType::Boolean, FieldType::Integer) => {
-                FieldType::Union(vec![FieldType::Integer, FieldType::Boolean])
+            (FieldType::Integer, FieldType::String) | (FieldType::String, FieldType::Integer) => {
+                FieldType::Union(vec![FieldType::Integer, FieldType::String])
             }
-            (FieldType::Float, FieldType::Boolean) | (FieldType::Boolean, FieldType::Float) => {
-                FieldType::Union(vec![FieldType::Float, FieldType::Boolean])
+            (FieldType::Float, FieldType::String) | (FieldType::String, FieldType::Float) => {
+                FieldType::Union(vec![FieldType::Float, FieldType::String])
             }
 
-            (FieldType::String, FieldType::Object(fields))
-            | (FieldType::Object(fields), FieldType::String) => {
-                FieldType::Union(vec![FieldType::String, FieldType::Object(fields)])
+            // Primitive, Array
+            (FieldType::Boolean, FieldType::Array(ty))
+            | (FieldType::Array(ty), FieldType::Boolean) => {
+                FieldType::Union(vec![FieldType::Boolean, FieldType::Array(ty)])
+            }
+            (FieldType::Integer, FieldType::Array(ty))
+            | (FieldType::Array(ty), FieldType::Integer) => {
+                FieldType::Union(vec![FieldType::Integer, FieldType::Array(ty)])
+            }
+            (FieldType::Float, FieldType::Array(ty)) | (FieldType::Array(ty), FieldType::Float) => {
+                FieldType::Union(vec![FieldType::Float, FieldType::Array(ty)])
+            }
+            (FieldType::String, FieldType::Array(ty))
+            | (FieldType::Array(ty), FieldType::String) => {
+                FieldType::Union(vec![FieldType::String, FieldType::Array(ty)])
+            }
+
+            // Primitive, Object
+            (FieldType::Boolean, FieldType::Object(fields))
+            | (FieldType::Object(fields), FieldType::Boolean) => {
+                FieldType::Union(vec![FieldType::Boolean, FieldType::Object(fields)])
             }
             (FieldType::Integer, FieldType::Object(fields))
             | (FieldType::Object(fields), FieldType::Integer) => {
@@ -108,15 +185,34 @@ impl FieldTypeAggregator {
             | (FieldType::Object(fields), FieldType::Float) => {
                 FieldType::Union(vec![FieldType::Float, FieldType::Object(fields)])
             }
-            (FieldType::Boolean, FieldType::Object(fields))
-            | (FieldType::Object(fields), FieldType::Boolean) => {
-                FieldType::Union(vec![FieldType::Boolean, FieldType::Object(fields)])
+            (FieldType::String, FieldType::Object(fields))
+            | (FieldType::Object(fields), FieldType::String) => {
+                FieldType::Union(vec![FieldType::String, FieldType::Object(fields)])
             }
 
-            (FieldType::String, FieldType::Union(mut tys))
-            | (FieldType::Union(mut tys), FieldType::String) => {
-                if !tys.contains(&FieldType::String) {
-                    tys.push(FieldType::String);
+            // Primitive, Optional
+            (FieldType::Boolean, FieldType::Optional(ty))
+            | (FieldType::Optional(ty), FieldType::Boolean) => {
+                FieldType::Optional(Box::new(Self::merge(FieldType::Boolean, *ty)))
+            }
+            (FieldType::Integer, FieldType::Optional(ty))
+            | (FieldType::Optional(ty), FieldType::Integer) => {
+                FieldType::Optional(Box::new(Self::merge(FieldType::Integer, *ty)))
+            }
+            (FieldType::Float, FieldType::Optional(ty))
+            | (FieldType::Optional(ty), FieldType::Float) => {
+                FieldType::Optional(Box::new(Self::merge(FieldType::Float, *ty)))
+            }
+            (FieldType::String, FieldType::Optional(ty))
+            | (FieldType::Optional(ty), FieldType::String) => {
+                FieldType::Optional(Box::new(Self::merge(FieldType::String, *ty)))
+            }
+
+            // Primitive, Union
+            (FieldType::Boolean, FieldType::Union(mut tys))
+            | (FieldType::Union(mut tys), FieldType::Boolean) => {
+                if !tys.contains(&FieldType::Boolean) {
+                    tys.push(FieldType::Boolean);
                 }
                 FieldType::Union(tys)
             }
@@ -134,50 +230,52 @@ impl FieldTypeAggregator {
                 }
                 FieldType::Union(tys)
             }
-            (FieldType::Boolean, FieldType::Union(mut tys))
-            | (FieldType::Union(mut tys), FieldType::Boolean) => {
-                if !tys.contains(&FieldType::Boolean) {
-                    tys.push(FieldType::Boolean);
+            (FieldType::String, FieldType::Union(mut tys))
+            | (FieldType::Union(mut tys), FieldType::String) => {
+                if !tys.contains(&FieldType::String) {
+                    tys.push(FieldType::String);
                 }
                 FieldType::Union(tys)
             }
 
-            (FieldType::String, FieldType::Array(ty))
-            | (FieldType::Array(ty), FieldType::String) => {
-                FieldType::Union(vec![FieldType::String, FieldType::Array(ty)])
-            }
-            (FieldType::Integer, FieldType::Array(ty))
-            | (FieldType::Array(ty), FieldType::Integer) => {
-                FieldType::Union(vec![FieldType::Integer, FieldType::Array(ty)])
-            }
-            (FieldType::Float, FieldType::Array(ty)) | (FieldType::Array(ty), FieldType::Float) => {
-                FieldType::Union(vec![FieldType::Float, FieldType::Array(ty)])
-            }
-            (FieldType::Boolean, FieldType::Array(ty))
-            | (FieldType::Array(ty), FieldType::Boolean) => {
-                FieldType::Union(vec![FieldType::Boolean, FieldType::Array(ty)])
+            // Array, Array
+            (FieldType::Array(existing_ele_type), FieldType::Array(new_ele_type)) => {
+                let merged_ele_type = Self::merge(*existing_ele_type, *new_ele_type);
+                FieldType::Array(Box::new(merged_ele_type))
             }
 
-            (FieldType::Optional(ty), FieldType::Unknown)
-            | (FieldType::Unknown, FieldType::Optional(ty)) => FieldType::Optional(ty),
-            (ft, FieldType::Unknown) | (FieldType::Unknown, ft) => {
-                FieldType::Optional(Box::new(ft))
+            // Object, Object
+            (FieldType::Object(existing_fields), FieldType::Object(new_fields)) => {
+                FieldType::Object(Self::merge_obj_fields(existing_fields, new_fields))
             }
-            (FieldType::String, FieldType::Optional(ty))
-            | (FieldType::Optional(ty), FieldType::String) => {
-                FieldType::Optional(Box::new(Self::merge(FieldType::String, *ty)))
+
+            // Optional, Optional
+            (FieldType::Optional(existing_ty), FieldType::Optional(new_ty)) => {
+                FieldType::Optional(Box::new(Self::merge(*existing_ty, *new_ty)))
             }
-            (FieldType::Integer, FieldType::Optional(ty))
-            | (FieldType::Optional(ty), FieldType::Integer) => {
-                FieldType::Optional(Box::new(Self::merge(FieldType::Integer, *ty)))
+
+            // Union, Union
+            (FieldType::Union(existing_types), FieldType::Union(new_types)) => {
+                let mut merged_types = existing_types;
+                for new_type in new_types {
+                    if !merged_types.contains(&new_type) {
+                        merged_types.push(new_type);
+                    }
+                }
+                FieldType::Union(merged_types)
             }
-            (FieldType::Float, FieldType::Optional(ty))
-            | (FieldType::Optional(ty), FieldType::Float) => {
-                FieldType::Optional(Box::new(Self::merge(FieldType::Float, *ty)))
-            }
-            (FieldType::Boolean, FieldType::Optional(ty))
-            | (FieldType::Optional(ty), FieldType::Boolean) => {
-                FieldType::Optional(Box::new(Self::merge(FieldType::Boolean, *ty)))
+
+            // Array, Object
+            (FieldType::Array(arr_ty), FieldType::Object(obj_fields))
+            | (FieldType::Object(obj_fields), FieldType::Array(arr_ty)) => FieldType::Union(vec![
+                FieldType::Object(obj_fields),
+                FieldType::Array(arr_ty),
+            ]),
+
+            // Non-Primitive, Optional
+            (FieldType::Array(arr_ty), FieldType::Optional(op_ty))
+            | (FieldType::Optional(op_ty), FieldType::Array(arr_ty)) => {
+                FieldType::Optional(Box::new(Self::merge(FieldType::Array(arr_ty), *op_ty)))
             }
             (FieldType::Object(fields), FieldType::Optional(ty))
             | (FieldType::Optional(ty), FieldType::Object(fields)) => {
@@ -187,15 +285,32 @@ impl FieldTypeAggregator {
             | (FieldType::Optional(ty), FieldType::Union(union_types)) => {
                 FieldType::Optional(Box::new(Self::merge(FieldType::Union(union_types), *ty)))
             }
-            (FieldType::Array(arr_ty), FieldType::Optional(op_ty))
-            | (FieldType::Optional(op_ty), FieldType::Array(arr_ty)) => {
-                FieldType::Optional(Box::new(Self::merge(FieldType::Array(arr_ty), *op_ty)))
-            }
 
-            (FieldType::Object(existing_fields), FieldType::Object(new_fields)) => {
-                FieldType::Object(Self::merge_obj_fields(existing_fields, new_fields))
-            }
-
+            // Non-Primitive, Union
+            (FieldType::Array(arr_type), FieldType::Union(mut union_types))
+            | (FieldType::Union(mut union_types), FieldType::Array(arr_type)) => match union_types
+                .iter_mut()
+                .filter_map(|ty| match ty {
+                    FieldType::Array(existing_arr_ty) => Some(existing_arr_ty),
+                    _ => None,
+                })
+                .next()
+            {
+                Some(existing_arr_type) => match *existing_arr_type == arr_type {
+                    true => FieldType::Union(union_types),
+                    false => {
+                        let yanked =
+                            std::mem::replace(existing_arr_type, Box::new(FieldType::Unknown));
+                        let merged_arr_type = Self::merge(*yanked, *arr_type);
+                        *existing_arr_type = Box::new(merged_arr_type);
+                        FieldType::Union(union_types)
+                    }
+                },
+                None => {
+                    union_types.push(FieldType::Array(arr_type));
+                    FieldType::Union(union_types)
+                }
+            },
             (FieldType::Object(obj_fields), FieldType::Union(mut union_types))
             | (FieldType::Union(mut union_types), FieldType::Object(obj_fields)) => {
                 match union_types
@@ -209,8 +324,8 @@ impl FieldTypeAggregator {
                     Some(existing_obj_fields) => match obj_fields == *existing_obj_fields {
                         true => FieldType::Union(union_types),
                         false => {
-                            let merged_obj_fields =
-                                Self::merge_obj_fields(existing_obj_fields.clone(), obj_fields);
+                            let yanked = std::mem::replace(existing_obj_fields, vec![]);
+                            let merged_obj_fields = Self::merge_obj_fields(yanked, obj_fields);
                             *existing_obj_fields = merged_obj_fields;
                             FieldType::Union(union_types)
                         }
@@ -220,54 +335,6 @@ impl FieldTypeAggregator {
                         FieldType::Union(union_types)
                     }
                 }
-            }
-            (FieldType::Array(arr_type), FieldType::Union(mut union_types))
-            | (FieldType::Union(mut union_types), FieldType::Array(arr_type)) => match union_types
-                .iter_mut()
-                .filter_map(|ty| match ty {
-                    FieldType::Array(existing_arr_ty) => Some(existing_arr_ty),
-                    _ => None,
-                })
-                .next()
-            {
-                Some(existing_arr_type) => match *existing_arr_type == arr_type {
-                    true => FieldType::Union(union_types),
-                    false => {
-                        let merged_arr_type =
-                            Self::merge(existing_arr_type.deref().deref().clone(), *arr_type);
-                        *existing_arr_type = Box::new(merged_arr_type);
-                        FieldType::Union(union_types)
-                    }
-                },
-                None => {
-                    union_types.push(FieldType::Array(arr_type));
-                    FieldType::Union(union_types)
-                }
-            },
-
-            (FieldType::Object(obj_fields), FieldType::Array(arr_ty))
-            | (FieldType::Array(arr_ty), FieldType::Object(obj_fields)) => FieldType::Union(vec![
-                FieldType::Object(obj_fields),
-                FieldType::Array(arr_ty),
-            ]),
-
-            (FieldType::Union(existing_types), FieldType::Union(new_types)) => {
-                let mut merged_types = existing_types;
-                for new_type in new_types {
-                    if !merged_types.contains(&new_type) {
-                        merged_types.push(new_type);
-                    }
-                }
-                FieldType::Union(merged_types)
-            }
-
-            (FieldType::Array(existing_ele_type), FieldType::Array(new_ele_type)) => {
-                let merged_ele_type = Self::merge(*existing_ele_type, *new_ele_type);
-                FieldType::Array(Box::new(merged_ele_type))
-            }
-
-            (FieldType::Optional(existing_ty), FieldType::Optional(new_ty)) => {
-                FieldType::Optional(Box::new(Self::merge(*existing_ty, *new_ty)))
             }
         }
     }
@@ -282,7 +349,9 @@ impl FieldTypeAggregator {
                 {
                     true => existing_field,
                     false => match existing_field.ty {
-                        FieldType::Unknown | FieldType::Optional(_) => existing_field,
+                        FieldType::Null | FieldType::Unknown | FieldType::Optional(_) => {
+                            existing_field
+                        }
                         _ => {
                             existing_field.ty = FieldType::Optional(Box::new(existing_field.ty));
                             existing_field
@@ -301,7 +370,7 @@ impl FieldTypeAggregator {
                 {
                     true => new_field,
                     false => match new_field.ty {
-                        FieldType::Unknown | FieldType::Optional(_) => new_field,
+                        FieldType::Null | FieldType::Unknown | FieldType::Optional(_) => new_field,
                         _ => {
                             new_field.ty = FieldType::Optional(Box::new(new_field.ty));
                             new_field
@@ -314,7 +383,10 @@ impl FieldTypeAggregator {
         let mut merged_fields = existing_fields;
         for new_field in new_fields {
             match merged_fields.iter_mut().find(|f| f.name == new_field.name) {
-                Some(field) => field.ty = Self::merge(field.ty.clone(), new_field.ty),
+                Some(field) => {
+                    let yanked = std::mem::replace(&mut field.ty, FieldType::Unknown);
+                    field.ty = Self::merge(yanked, new_field.ty);
+                }
                 None => merged_fields.push(new_field),
             }
         }
@@ -335,7 +407,7 @@ fn array(arr: Vec<Value>) -> FieldType {
 
 fn field_type(value: Value) -> FieldType {
     match value {
-        Value::Null => FieldType::Unknown,
+        Value::Null => FieldType::Null,
         Value::Bool(_) => FieldType::Boolean,
         Value::Number(n) => match n.is_u64() || n.is_i64() {
             true => FieldType::Integer,
@@ -369,7 +441,8 @@ impl Display for FieldType {
             FieldType::Integer => write!(f, "int"),
             FieldType::Float => write!(f, "float"),
             FieldType::Boolean => write!(f, "bool"),
-            FieldType::Unknown => write!(f, "null"),
+            FieldType::Null => write!(f, "null"),
+            FieldType::Unknown => write!(f, "unknown"),
             FieldType::Object(fields) => write!(f, "{{{}}}", FieldsDisp(fields)),
             FieldType::Union(field_types) => {
                 for field_type in field_types {
@@ -402,6 +475,7 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
+    #[track_caller]
     fn check(json: &str, schema: &str) {
         let json = serde_json::from_str::<Value>(json).expect("invalid json string");
         assert_eq!(schema, format!("{}", Schema::from(json)));
@@ -411,7 +485,7 @@ mod tests {
     fn test() {
         // empty structures
         check("{}", "{}");
-        check("[]", "[null]");
+        check("[]", "[unknown]"); // empty array has no information, element type is unknown
         check("[null]", "[null]");
 
         // single primitive arrays
@@ -422,27 +496,33 @@ mod tests {
 
         // union
         check("[1, 2.5]", "[|int|float|]");
-        check(r#"["a", 5]"#, "[|str|int|]");
+        check(r#"["a", 5]"#, "[|int|str|]");
         check(r#"["s", {"a":1}]"#, "[|str|{a:int}|]");
-        check(r#"[{"a":1}, [1]]"#, "[|{a:int}|[int]|]");
+        check(r#"[{"a":1}, [1]]"#, "[|[int]|{a:int}|]");
 
         // null
         check("[null, null]", "[null]");
 
+        // empty array (unknown)
+        check("[[], [1,2]]", "[[int]]");
+        check(r#"{"x": []}"#, "{x:[unknown]}");
+
         // optional
         check("[null, 5]", "[int?]");
         check("[5, null]", "[int?]");
+        check("[null, true]", "[bool?]");
+        check(r#"[null, "hello"]"#, "[str?]");
         check("[null, null, 5]", "[int?]");
         check("[[1], null]", "[[int]?]");
         check("[null, [1]]", "[[int]?]");
 
         // optional union
-        check("[1, 2.2, null]", "[|int|float|?]");
-        check(r#"["s", 1, null]"#, "[|str|int|?]");
+        check("[2.2, 1, null]", "[|int|float|?]");
+        check(r#"["s", 1, null]"#, "[|int|str|?]");
 
         // nested arrays
         check("[[1], [2]]", "[[int]]");
-        check(r#"[[1], ["a"]]"#, "[[|str|int|]]");
+        check(r#"[[1], ["a"]]"#, "[[|int|str|]]");
 
         // array of objects with disjoint fields
         check(r#"[{"a":1}, {}]"#, "[{a:int?}]");
@@ -456,7 +536,7 @@ mod tests {
         check(r#"{"x": 1}"#, "{x:int}");
         check(r#"{"x": null}"#, "{x:null}");
         check(r#"{"x": [1,2]}"#, "{x:[int]}");
-        check(r#"{"x": [1, "a", null]}"#, "{x:[|str|int|?]}");
+        check(r#"{"x": [1, "a", null]}"#, "{x:[|int|str|?]}");
     }
 
     #[test]
@@ -493,10 +573,10 @@ mod tests {
             }
             "#,
             "{\
-            user:{id:int,name:str,email:str,verified:bool,address:{city:str,zip:int}},\
-            cart:[{sku:str,qty:int,price:float,metadata:{color:str}?}],\
+            cart:[{metadata:{color:str}?,price:float,qty:int,sku:str}],\
+            discount_codes:[|int|str|?],\
             payment:null,\
-            discount_codes:[|str|int|?]\
+            user:{address:{city:str,zip:int},email:str,id:int,name:str,verified:bool}\
         }",
         );
     }
@@ -510,6 +590,7 @@ mod tests {
                 "services": [
                     {"name": "db", "replicas": 2, "env": ["POSTGRES=1", "DEBUG=true"]},
                     {"name": "api", "replicas": 3, "env": null},
+                    {"name": "ui", "replicas": 1},
                     {"name": "cache", "replicas": 1, "env": ["REDIS=1"]}
                 ],
                 "features": {
@@ -520,9 +601,9 @@ mod tests {
             }
             "#,
             "{\
-                version:str,\
-                services:[{name:str,replicas:int,env:[str]?}],\
-                features:{auth:bool,logging:{level:str,files:[str]},metrics:null}\
+                features:{auth:bool,logging:{files:[str],level:str},metrics:null},\
+                services:[{env:[str]?,name:str,replicas:int}],\
+                version:str\
             }",
         );
     }
@@ -539,11 +620,13 @@ mod tests {
             ]
             "#,
             "[{\
-                event:str,\
-                x:int?,y:int?,\
+                amount:float?,\
+                currency:str?,\
                 delta:int?,\
-                amount:float?,currency:str?,\
-                timestamp:str?\
+                event:str,\
+                timestamp:str?,\
+                x:int?,\
+                y:int?\
             }]",
         );
     }

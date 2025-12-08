@@ -4,11 +4,11 @@ pub struct Iota {
 }
 
 impl Iota {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { n: 0 }
     }
 
-    pub fn next(&mut self) -> usize {
+    pub const fn next(&mut self) -> usize {
         let n = self.n;
         self.n += 1;
         n

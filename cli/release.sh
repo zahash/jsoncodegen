@@ -1,36 +1,28 @@
+#!/usr/bin/env bash
 set -e
 
-mkdir -p target/bin
+# Check if target argument is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <target-triple>"
+    echo ""
+    echo "Example target triples:"
+    echo "  Linux:   x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, i686-unknown-linux-gnu"
+    echo "  Windows: x86_64-pc-windows-msvc, i686-pc-windows-msvc, aarch64-pc-windows-msvc"
+    echo "  macOS:   aarch64-apple-darwin, x86_64-apple-darwin"
+    exit 1
+fi
 
-# linux
-rustup target add x86_64-unknown-linux-gnu
-rustup target add aarch64-unknown-linux-gnu
-rustup target add i686-unknown-linux-gnu
+TARGET=$1
 
-cross build --release --target x86_64-unknown-linux-gnu
-cross build --release --target aarch64-unknown-linux-gnu
-cross build --release --target i686-unknown-linux-gnu
+# Ensure cross is installed
+if ! command -v cross &> /dev/null; then
+    cargo install cross
+fi
 
-cp target/x86_64-unknown-linux-gnu/release/jsoncodegen target/bin/jsoncodegen-x86_64-linux
-cp target/aarch64-unknown-linux-gnu/release/jsoncodegen target/bin/jsoncodegen-aarch64-linux
-cp target/i686-unknown-linux-gnu/release/jsoncodegen target/bin/jsoncodegen-i686-linux
+# Add the target
+rustup target add "$TARGET"
 
-# windows
-rustup target add x86_64-pc-windows-gnu
-rustup target add i686-pc-windows-gnu
-# rustup target add aarch64-pc-windows-msvc
+# Build with cross
+cross build --package jcg --profile cli --target "$TARGET"
 
-cross build --release --target x86_64-pc-windows-gnu
-cross build --release --target i686-pc-windows-gnu
-# cross build --release --target aarch64-pc-windows-msvc
-
-cp target/x86_64-pc-windows-gnu/release/jsoncodegen.exe target/bin/jsoncodegen-x86_64-windows.exe
-cp target/i686-pc-windows-gnu/release/jsoncodegen.exe target/bin/jsoncodegen-i686-windows.exe
-# cp target/aarch64-pc-windows-msvc/release/jsoncodegen.exe target/bin/jsoncodegen-aarch64-windows.exe
-
-# apple
-# rustup target add aarch64-apple-darwin
-# rustup target add x86_64-apple-darwin
-
-# cross build --release --target aarch64-apple-darwin
-# cross build --release --target x86_64-apple-darwin
+echo "Build complete! Binary location: target/$TARGET/cli/jcg"

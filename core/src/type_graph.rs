@@ -98,41 +98,65 @@
 //!
 //! ## Example Workflow
 //!
+//! Linked list with nullable `next`/`prev` pointers demonstrating recursive types and reduction:
+//!
 //! ```text
-//! JSON: [{"name":"Alice","age":30}, {"name":"Bob","age":25}]
+//! JSON: [
+//!   { "val": 1, "next": null, "prev": null },
+//!   { "val": 1, "next": { "val": 2, "next": null, "prev": null }, "prev": null },
+//!   { "val": 1, "next": null, "prev": { "val": 2, "next": null, "prev": null } }
+//! ]
 //!
 //! 1. Schema Inference:
-//!    Schema::Array(
-//!      FieldType::Object([
-//!        Field{name:"age", ty:Integer},
-//!        Field{name:"name", ty:String}
-//!      ])
-//!    )
+//! Array(
+//!   Object([
+//!     Field { name: "val", ty: Integer },
+//!     Field {
+//!       name: "next",
+//!       ty: Optional(
+//!         Object([
+//!           Field { name: "val",  ty: Integer },
+//!           Field { name: "next", ty: Null },
+//!           Field { name: "prev", ty: Null },
+//!         ]),
+//!       ),
+//!     },
+//!     Field {
+//!       name: "prev",
+//!       ty: Optional(
+//!         Object([
+//!           Field { name: "val",  ty: Integer },
+//!           Field { name: "next", ty: Null },
+//!           Field { name: "prev", ty: Null },
+//!         ]),
+//!       ),
+//!     },
+//!   ]),
+//! )
 //!
-//! 2. Graph Building:
-//!    TypeGraph {
-//!      root: 2,
-//!      nodes: {
-//!        0: Integer,
-//!        1: String,
-//!        2: Array(3),
-//!        3: Object([
-//!          ObjectField{name:"age", type_id:0},
-//!          ObjectField{name:"name", type_id:1}
-//!        ])
-//!      }
-//!    }
+//! 3. Graph Building (with deduplication):
+//!   TypeGraph {
+//!     root: 4,
+//!     nodes: {
+//!       0: Null,
+//!       1: Integer,
+//!       2: Object([
+//!         ObjectField{name:"val",  type_id:1},
+//!         ObjectField{name:"next", type_id:3},
+//!         ObjectField{name:"prev", type_id:3}
+//!       ]),
+//!       3: Optional(2),  // Recursive reference: Optional<Node>
+//!       4: Array(2)
+//!     }
+//!   }
 //!
-//! 3. Reduction:
-//!    (No reduction needed - single object type)
-//!    TypeGraph unchanged
+//! Reduction:
+//!   All three objects reduced to single Object type
+//!
+//! Canonical View: #4:[{next:next?, prev:next?, val:int}]
+//!   - Recursive self-reference: `next` and `prev` both point to Optional<Node>
+//!   - Compact representation of potentially infinite linked list structure
 //! ```
-//!
-//! ## See Also
-//!
-//! - [`schema`](crate::schema) - Schema inference from JSON
-//! - [`name_registry`](crate::name_registry) - Type name generation
-//!
 use std::{
     collections::{BTreeMap, HashSet},
     fmt::Display,
@@ -445,7 +469,8 @@ impl TypeReducer {
     /// Rules:
     /// - `T + T → T` (identical TypeIds)
     /// - `Unknown + T → T` (Unknown adopts concrete type)
-    /// - `Null + T → Optional<T>` (creates Optional via intern)
+    /// - `Null + T → Optional(T)` (creates Optional, unless T already Optional)
+    /// - `Null + Optional(T) → Optional(T)` (already optional, no double-wrap)
     /// - `Optional(T) + T → Optional(T)` (already optional)
     /// - `Optional(T1) + Optional(T2)` where T1≠T2 → None (TODO: unimplemented)
     /// - `T1 + T2` (incompatible) → None (no Union creation; causes merge failure)
@@ -476,6 +501,10 @@ impl TypeReducer {
 
         // Null represents an explicit null value, so it creates Optional
         if let TypeDef::Null = target_type_def {
+            // If candidate is already Optional, don't double-wrap
+            if matches!(candidate_type_def, TypeDef::Optional(_)) {
+                return Some(candidate.clone());
+            }
             return Some(ObjectField {
                 name: candidate.name.clone(),
                 type_id: self.intern(TypeDef::Optional(candidate.type_id)),
@@ -483,6 +512,10 @@ impl TypeReducer {
         }
 
         if let TypeDef::Null = candidate_type_def {
+            // If target is already Optional, don't double-wrap
+            if matches!(target_type_def, TypeDef::Optional(_)) {
+                return Some(target.clone());
+            }
             return Some(ObjectField {
                 name: target.name.clone(),
                 type_id: self.intern(TypeDef::Optional(target.type_id)),

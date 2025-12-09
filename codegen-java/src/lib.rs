@@ -107,6 +107,7 @@ impl From<serde_json::Value> for Java {
                             TypeDef::Integer => "intVal".into(),
                             TypeDef::Float => "doubleVal".into(),
                             TypeDef::Boolean => "boolVal".into(),
+                            TypeDef::Null => "nullVal".into(),
                             TypeDef::Unknown => "objVal".into(),
                             TypeDef::Object(_) => identifier(*inner_type_id, &name_registry)
                                 .map(|ident| ident.to_case(Case::Camel))
@@ -169,7 +170,7 @@ fn derive_type_name(
             TypeDef::Integer => "Long".into(),
             TypeDef::Float => "Double".into(),
             TypeDef::Boolean => "Boolean".into(),
-            TypeDef::Unknown => "Object".into(),
+            TypeDef::Null | TypeDef::Unknown => "Object".into(),
             TypeDef::Object(_) | TypeDef::Union(_) => identifier(type_id, name_registry)
                 .map(|ident| ident.to_case(Case::Pascal))
                 .unwrap_or_else(|| format!("Type{}", type_id)),

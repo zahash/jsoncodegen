@@ -128,6 +128,7 @@ impl From<serde_json::Value> for Rust {
                             TypeDef::Integer => "Int".into(),
                             TypeDef::Float => "Float".into(),
                             TypeDef::Boolean => "Bool".into(),
+                            TypeDef::Null => "Null".into(),
                             TypeDef::Unknown => "Unknown".into(),
                             TypeDef::Object(_) => identifier(*inner_type_id, &name_registry)
                                 .map(|ident| ident.to_case(Case::Snake))
@@ -225,7 +226,7 @@ fn derive_type_name(
             TypeDef::Integer => "isize".into(),
             TypeDef::Float => "f64".into(),
             TypeDef::Boolean => "bool".into(),
-            TypeDef::Unknown => "serde_json::Value".into(),
+            TypeDef::Null | TypeDef::Unknown => "serde_json::Value".into(),
             TypeDef::Object(_) | TypeDef::Union(_) => {
                 let mut ident = identifier(type_id, name_registry)
                     .map(|ident| ident.to_case(Case::Pascal))

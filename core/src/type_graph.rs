@@ -222,7 +222,7 @@ impl From<Schema> for TypeGraph {
     }
 }
 
-/// Canonicalizes TypeDef: sorts Object fields by name, Union members by TypeId.
+/// Canonicalizes TypeDef: sorts Object fields by name, Union members by inner TypeDef.
 ///
 /// Ensures structural equality for deduplication of semantically identical types.
 /// e.g., `Union([1,2])` and `Union([2,1])` are treated as the same type.
@@ -247,7 +247,6 @@ fn canonicalize(type_def: &mut TypeDef, nodes: &BTreeMap<TypeId, TypeDef>) {
             },
             None => usize::MAX, // Unknown types go last. usually unreachable!
         });
-        inner_type_ids.sort();
     }
 }
 

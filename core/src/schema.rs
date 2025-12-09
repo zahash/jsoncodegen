@@ -1,30 +1,115 @@
+//! # JSON Schema Inference
+//!
+//! This module provides functionality to infer type schemas from JSON data through structural analysis.
+//! It takes arbitrary JSON input and produces a canonical schema representation that captures the
+//! complete type structure, including unions, optionals, and nested objects.
+//!
+//! ## Core Data Structures
+//!
+//! ### [`Schema`]
+//!
+//! The top-level schema representation can be either:
+//! - **Object**: A JSON object with named fields `{name:str,age:int}`
+//! - **Array**: A JSON array with homogeneous or heterogeneous elements `[float]`
+//!
+//! ### [`Field`]
+//!
+//! A named field within an object, consisting of:
+//! - `name`: The field name as a string
+//! - `ty`: The inferred type of the field as a [`FieldType`]
+//!
+//! ### [`FieldType`]
+//!
+//! The module distinguishes between several categories of types:
+//!
+//! #### Primitive Types
+//! - `Boolean`, `Integer`, `Float`, `String` - Basic JSON value types
+//!
+//! #### Special Types
+//! - `Null` - Represents an explicit JSON `null` value
+//! - `Unknown` - Represents lack of type information (e.g., element type of an empty array `[]`)
+//!
+//! #### Structural Types
+//! - Object(Vec<[Field]>) - Named field collection
+//! - Array(Box<[FieldType]>) - Homogeneous collection
+//!
+//! #### Composite Types
+//! - Optional(Box<[FieldType]>) - Type that can be the inner type or null
+//! - Union(Vec<[FieldType]>) - Type that can be one of several alternatives
+//!
+//! ## Type Merging Semantics
+//!
+//! When multiple JSON values are analyzed (e.g., elements in an array), their types are merged:
+//!
+//! Eg:
+//! - **T + T → T**: Same types merge to themselves
+//! - **Unknown + T → T**: Unknown represents no information, so it adopts any concrete type
+//! - **Null + T → Optional\<T\>**: Null indicates absence, making the type optional
+//! - **T1 + T2 → Union\<T1, T2\>**: Different concrete types create a union
+//!
+//! For detailed merging rules, see [`FieldTypeAggregator::merge`].
+//!
+//! ## Examples
+//!
+//! ```rust
+//! use serde_json::json;
+//! use jsoncodegen::schema::Schema;
+//!
+//! // Simple object
+//! let json = json!({"name": "Alice", "age": 30});
+//! let schema = Schema::from(json);
+//! // Result: {age:int, name:str}
+//!
+//! // Array with mixed types creates a union
+//! let json = json!([1, "hello", 2.5]);
+//! let schema = Schema::from(json);
+//! // Result: [|int|float|str|]
+//!
+//! // Null values create optional types
+//! let json = json!([1, null, 3]);
+//! let schema = Schema::from(json);
+//! // Result: [int?]
+//!
+//! // Empty arrays have unknown element type
+//! let json = json!([]);
+//! let schema = Schema::from(json);
+//! // Result: [unknown]
+//! ```
+
 use serde_json::{Map, Value};
 use std::fmt::Display;
 
+/// Top-level schema: either an Object with fields or an Array with element type.
+///
+/// Fields are sorted alphabetically for canonical representation.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Schema {
     Object(Vec<Field>),
     Array(FieldType),
 }
 
+/// A named field within an object type.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field {
     pub name: String,
     pub ty: FieldType,
 }
 
+/// Inferred type of a JSON value.
+///
+/// for merging semantics, see [`FieldTypeAggregator::merge`].
 #[derive(Debug, Clone, PartialEq)]
 pub enum FieldType {
-    Unknown, // Represents a truly unknown/uninferred type (e.g., from an empty array `[]`)
+    Unknown, // Represents a truly unknown/uninferred type (e.g., element type of an empty array `[]`)
     Null,    // Represents an explicit JSON `null` value
     Boolean,
     Integer,
     Float,
     String,
-    Array(Box<FieldType>),
-    Object(Vec<Field>),
-    Optional(Box<FieldType>),
-    Union(Vec<FieldType>),
+    Array(Box<FieldType>),    // JSON array
+    Object(Vec<Field>),       // JSON object
+    Optional(Box<FieldType>), // nullable type (can be inner type or null)
+    Union(Vec<FieldType>),    // Union of heterogeneous types.
 }
 
 impl From<Value> for Schema {
@@ -45,6 +130,7 @@ impl From<Value> for Schema {
     }
 }
 
+/// Sorts fields alphabetically by field names and recursively sorts nested types.
 fn sort_fields(fields: &mut [Field]) {
     fields.sort_by(|a, b| a.name.cmp(&b.name));
     for field in fields {
@@ -52,6 +138,7 @@ fn sort_fields(fields: &mut [Field]) {
     }
 }
 
+/// Sorts types by complexity (Unknown < primitives < structures < modifiers) and recursively.
 fn sort_field_types(field_types: &mut [FieldType]) {
     field_types.sort_by_key(|t| match t {
         FieldType::Unknown => 0,
@@ -70,6 +157,7 @@ fn sort_field_types(field_types: &mut [FieldType]) {
     }
 }
 
+/// Recursively sorts a field type and nested components.
 fn sort_field_type(field_type: &mut FieldType) {
     match field_type {
         FieldType::Object(fields) => sort_fields(fields),
@@ -81,6 +169,7 @@ fn sort_field_type(field_type: &mut FieldType) {
     }
 }
 
+/// Converts JSON object to vector of typed fields.
 fn object(obj: Map<String, Value>) -> Vec<Field> {
     let mut fields = vec![];
 
@@ -94,6 +183,9 @@ fn object(obj: Map<String, Value>) -> Vec<Field> {
     fields
 }
 
+/// Merges multiple types into a unified type by accumulating them.
+///
+/// Starts with `Unknown`, then merges each type sequentially.
 struct FieldTypeAggregator {
     ty: FieldType,
 }
@@ -105,6 +197,7 @@ impl FieldTypeAggregator {
         }
     }
 
+    /// Merges a new type into the accumulator (zero-copy via mem::replace).
     fn add(&mut self, field_type: FieldType) {
         self.ty = Self::merge(
             std::mem::replace(&mut self.ty, FieldType::Unknown),
@@ -116,6 +209,14 @@ impl FieldTypeAggregator {
         self.ty
     }
 
+    /// Core type merging algorithm. See the function body for detailed rules.
+    ///
+    /// - **T + T → T**: Same types merge to themselves
+    /// - **Unknown + T → T**: Unknown represents no information, so it adopts any concrete type
+    /// - **Null + T → Optional\<T\>**: Null indicates absence, making the type optional
+    /// - **Null + Optional\<T\> → Optional\<T\>**: Null merged with an Optional remains Optional
+    /// - **T1 + T2 → Union\<T1, T2\>**: Different concrete types create a union
+    /// - Arrays/Objects merge recursively, Unions expand.
     fn merge(existing: FieldType, new: FieldType) -> FieldType {
         match (existing, new) {
             (FieldType::Unknown, FieldType::Unknown) => FieldType::Unknown,
@@ -339,6 +440,7 @@ impl FieldTypeAggregator {
         }
     }
 
+    /// Merges object field lists: shared fields merge recursively, disjoint fields become Optional.
     fn merge_obj_fields(mut existing_fields: Vec<Field>, mut new_fields: Vec<Field>) -> Vec<Field> {
         existing_fields = existing_fields
             .into_iter()
@@ -394,6 +496,7 @@ impl FieldTypeAggregator {
     }
 }
 
+/// Infers array element type by merging all elements.
 fn array(arr: Vec<Value>) -> FieldType {
     let mut agg = FieldTypeAggregator::new();
 
@@ -405,6 +508,7 @@ fn array(arr: Vec<Value>) -> FieldType {
     agg.finalize()
 }
 
+/// Converts JSON Value to FieldType. Numbers are Integer if i64/u64, else Float.
 fn field_type(value: Value) -> FieldType {
     match value {
         Value::Null => FieldType::Null,
@@ -456,13 +560,14 @@ impl Display for FieldType {
     }
 }
 
+/// Helper for comma-separated field display.
 struct FieldsDisp<'a>(&'a [Field]);
+
 impl Display for FieldsDisp<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut iter = self.0.iter();
-        if let Some(field) = iter.next() {
-            write!(f, "{}", field)?;
-            for field in iter {
+        if let [first, rest @ ..] = self.0 {
+            write!(f, "{}", first)?;
+            for field in rest {
                 write!(f, ",{}", field)?;
             }
         }

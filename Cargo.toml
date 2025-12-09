@@ -6,7 +6,6 @@ members = [
     "codegen-rust",
     "core",
     "dispatch",
-    "extra",
     "iota",
     "web",
 ]

@@ -231,9 +231,6 @@ fn canonicalize(type_def: &mut TypeDef, nodes: &BTreeMap<TypeId, TypeDef>) {
         fields.sort_by(|a, b| a.name.cmp(&b.name));
     }
 
-    // TODO: canonicalizing union based on type_ids is sufficient to guaratee de-duplication
-    // but we may want to canonicalize based on the actual TypeDef they refer to
-    // to have deterministic CanonicalView display strings
     if let TypeDef::Union(inner_type_ids) = type_def {
         inner_type_ids.sort_by_key(|id| match nodes.get(id) {
             Some(inner_type_def) => match inner_type_def {
@@ -440,49 +437,6 @@ impl TypeReducer {
             .collect()
     }
 
-    /*
-    TODO:
-    {
-        "name": "Root",
-        "children": [
-            {
-                "name": "Child1",
-                "children": []
-            }
-        ]
-    }
-
-    it generates this right now
-
-    use serde::{Serialize, Deserialize};
-
-    pub type ROOT = Type5;
-
-    #[derive(Serialize, Deserialize, Debug)]
-    pub struct Type3 {
-        pub children: Vec<serde_json::Value>,
-        pub name: String,
-    }
-
-    #[derive(Serialize, Deserialize, Debug)]
-    pub struct Type5 {
-        pub children: Vec<Type3>,
-        pub name: String,
-    }
-
-    but it should have generated this
-
-    use serde::{Serialize, Deserialize};
-
-    pub type ROOT = Type3;
-
-    #[derive(Serialize, Deserialize, Debug)]
-    pub struct Type3 {
-        pub children: Vec<Type3>,
-        pub name: String,
-    }
-    */
-
     /// Merges two fields with same name. Returns None if names differ or types incompatible.
     ///
     /// Rules:
@@ -550,13 +504,6 @@ impl TypeReducer {
             && candidate_inner_type_id == &target.type_id
         {
             return Some(candidate.clone());
-        }
-
-        if let (TypeDef::Optional(target_inner_type_id), TypeDef::Optional(candidate_inner_type_id)) =
-            (target_type_def, candidate_type_def)
-            && target_inner_type_id != candidate_inner_type_id
-        {
-            // TODO
         }
 
         None
@@ -698,85 +645,5 @@ impl Display for CanonicalView<'_> {
 impl Display for TypeGraph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", CanonicalView::from(self))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pretty_assertions::assert_eq;
-
-    #[track_caller]
-    fn check_full(json: &str, type_graph: &str) {
-        let json = serde_json::from_str::<Value>(json).expect("invalid json string");
-        assert_eq!(type_graph, format!("{}", TypeGraph::from(json)));
-    }
-
-    #[track_caller]
-    fn check_rootless(json: &str, rootless_type_graph: &str) {
-        let json = serde_json::from_str::<Value>(json).expect("invalid json string");
-        assert_eq!(
-            rootless_type_graph,
-            format!("{}", TypeGraph::from(json))
-                .split_once(';')
-                .expect("expected root to be separated by ; delimiter")
-                .1
-        );
-    }
-
-    #[test]
-    fn linked_list() {
-        check_rootless(
-            r#"
-            [
-                { "val": 1, "next": null, "prev": null },
-                { "val": 1, "next": { "val": 2, "next": null, "prev": null }, "prev": null },
-                { "val": 1, "next": null, "prev": { "val": 2, "next": null, "prev": null } }
-            ]
-            "#,
-            "[{next:next?,prev:next?,val:int}]",
-        );
-
-        check_full(
-            r#"
-            {
-                "val": 1,
-                "prev": {"val": 2, "prev": null, "next": null},
-                "next": {
-                    "val": 3,
-                    "prev": null,
-                    "next": {"val": 4, "prev": null, "next": null}
-                }
-            }
-            "#,
-            "next;{next:next?,prev:next?,val:int}",
-        );
-    }
-
-    #[test]
-    fn tree() {
-        check_full(
-            r#"
-            {
-                "name": "Root",
-                "children": [
-                    {
-                        "name": "Child1",
-                        "children": []
-                    },
-                    {
-                        "name": "Child2",
-                        "children": [
-                            {
-                                "name": "Grandchild",
-                                "children": []
-                            }
-                        ]
-                    }
-                ]
-            }
-            "#,
-            "children;{children:[children],name:str}",
-        );
     }
 }

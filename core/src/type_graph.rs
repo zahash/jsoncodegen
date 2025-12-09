@@ -226,12 +226,31 @@ impl From<Schema> for TypeGraph {
 ///
 /// Ensures structural equality for deduplication of semantically identical types.
 /// e.g., `Union([1,2])` and `Union([2,1])` are treated as the same type.
-fn canonicalize(type_def: &mut TypeDef) {
+fn canonicalize(type_def: &mut TypeDef, nodes: &BTreeMap<TypeId, TypeDef>) {
     if let TypeDef::Object(fields) = type_def {
         fields.sort_by(|a, b| a.name.cmp(&b.name));
     }
-    if let TypeDef::Union(type_ids) = type_def {
-        type_ids.sort();
+
+    // TODO: canonicalizing union based on type_ids is sufficient to guaratee de-duplication
+    // but we may want to canonicalize based on the actual TypeDef they refer to
+    // to have deterministic CanonicalView display strings
+    if let TypeDef::Union(inner_type_ids) = type_def {
+        inner_type_ids.sort_by_key(|id| match nodes.get(id) {
+            Some(inner_type_def) => match inner_type_def {
+                TypeDef::Unknown => 0,
+                TypeDef::Null => 1,
+                TypeDef::Boolean => 2, // Simplest primitive type
+                TypeDef::Integer => 3, // Numeric types ordered by specificity
+                TypeDef::Float => 4,   // More general numeric type
+                TypeDef::String => 5,
+                TypeDef::Array(_) => 6, // Collection types before complex structures
+                TypeDef::Object(_) => 7, // Complex structured type
+                TypeDef::Optional(_) => 8, // Wrapper types that modify other types
+                TypeDef::Union(_) => 9, // Most complex - union of multiple types
+            },
+            None => usize::MAX, // Unknown types go last. usually unreachable!
+        });
+        inner_type_ids.sort();
     }
 }
 
@@ -244,7 +263,9 @@ struct GraphBuilder {
 }
 
 impl GraphBuilder {
-    /// Builds TypeGraph from Schema by processing root and all nested types.
+    /// Builds Canonicalized TypeGraph from Schema by processing root and all nested types.
+    ///
+    /// see [`canonicalize`] for details on canonicalization process.
     fn build(schema: Schema) -> TypeGraph {
         let mut builder = GraphBuilder::default();
 
@@ -305,7 +326,7 @@ impl GraphBuilder {
 
     /// Interns TypeDef: canonicalize, check cache, return existing or create new TypeId.
     fn intern(&mut self, mut type_def: TypeDef) -> TypeId {
-        canonicalize(&mut type_def);
+        canonicalize(&mut type_def, &self.nodes);
 
         match self.cache.get(&type_def) {
             Some(type_id) => *type_id,
@@ -335,6 +356,7 @@ struct TypeReducer {
 
 impl TypeReducer {
     /// Reduces TypeGraph: processes each type, remaps TypeIds, merges compatible Objects.
+    /// NOTE: TypeGraph must already be canonicalized (from GraphBuilder phase)
     ///
     /// Algorithm:
     /// 1. For each type: remap contained TypeIds using remaps table (points to reduced types)
@@ -363,16 +385,16 @@ impl TypeReducer {
     /// Non-Objects: intern directly (deduplication only, no reduction).
     fn reduce_type_def(&mut self, type_def: TypeDef) -> TypeId {
         match type_def {
-            TypeDef::Object(mut object_fields) => {
+            TypeDef::Object(object_fields) => {
                 let target_type_ids: Vec<TypeId> = self.reduced_nodes.keys().copied().collect();
 
                 for target_type_id in target_type_ids {
                     if let Some(TypeDef::Object(target_object_fields)) =
                         self.reduced_nodes.get(&target_type_id)
                     {
-                        let mut target_object_fields = target_object_fields.clone();
+                        let target_object_fields = target_object_fields.clone();
                         if let Some(merged_object_fields) =
-                            self.merge_object_fields(&mut target_object_fields, &mut object_fields)
+                            self.merge_object_fields(&target_object_fields, &object_fields)
                         {
                             self.reduced_nodes
                                 .insert(target_type_id, TypeDef::Object(merged_object_fields));
@@ -396,18 +418,15 @@ impl TypeReducer {
 
     /// Merges field lists: checks length equality, sorts both by name, zips and merges pairwise.
     /// Returns Some(merged) only if all field pairs successfully merge; else None.
+    /// NOTE: it is assumed that both target and candidate object fields are canonicalized (sorted by name).
     fn merge_object_fields(
         &mut self,
-        target: &mut [ObjectField],
-        candidate: &mut [ObjectField],
+        target: &[ObjectField],
+        candidate: &[ObjectField],
     ) -> Option<Vec<ObjectField>> {
         if target.len() != candidate.len() {
             return None;
         }
-
-        // fields should be sorted by name before comparison
-        target.sort_by(|a, b| a.name.cmp(&b.name));
-        candidate.sort_by(|a, b| a.name.cmp(&b.name));
 
         target
             .iter()
@@ -472,7 +491,6 @@ impl TypeReducer {
     /// - `Null + T → Optional(T)` (creates Optional, unless T already Optional)
     /// - `Null + Optional(T) → Optional(T)` (already optional, no double-wrap)
     /// - `Optional(T) + T → Optional(T)` (already optional)
-    /// - `Optional(T1) + Optional(T2)` where T1≠T2 → None (TODO: unimplemented)
     /// - `T1 + T2` (incompatible) → None (no Union creation; causes merge failure)
     fn merge_object_field(
         &mut self,
@@ -545,7 +563,7 @@ impl TypeReducer {
     }
 
     fn intern(&mut self, mut type_def: TypeDef) -> TypeId {
-        canonicalize(&mut type_def);
+        canonicalize(&mut type_def, &self.reduced_nodes);
 
         match self.cache.get(&type_def) {
             Some(type_id) => *type_id,
@@ -626,13 +644,12 @@ impl<'type_graph> CanonicalView<'type_graph> {
                 TypeDef::Unknown => write!(f, "unknown")?,
                 TypeDef::Object(object_fields) => {
                     write!(f, "{{")?;
-                    let mut iter = object_fields.iter();
-                    if let Some(object_field) = iter.next() {
-                        write!(f, "{}:", object_field.name)?;
-                        self.fmt_type(f, object_field.type_id, visited)?;
+                    if let [first, rest @ ..] = object_fields.as_slice() {
+                        write!(f, "{}:", first.name)?;
+                        self.fmt_type(f, first.type_id, visited)?;
 
-                        for object_field in iter {
-                            write!(f, ", {}:", object_field.name)?;
+                        for object_field in rest {
+                            write!(f, ",{}:", object_field.name)?;
                             self.fmt_type(f, object_field.type_id, visited)?;
                         }
                     }
@@ -668,8 +685,8 @@ impl Display for CanonicalView<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Print the label for the root (name or fallback to id)
         match self.name_registry.assigned_name(self.type_graph.root) {
-            Some(name) => write!(f, "{}:", name),
-            None => write!(f, "#{}:", self.type_graph.root),
+            Some(name) => write!(f, "{};", name),
+            None => write!(f, "#{};", self.type_graph.root),
         }?;
 
         // Then print the body of the root type
@@ -680,34 +697,86 @@ impl Display for CanonicalView<'_> {
 
 impl Display for TypeGraph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", CanonicalView::from(self))
+        write!(f, "{}", CanonicalView::from(self))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
+    use pretty_assertions::assert_eq;
 
-    fn schema(json: &str) -> Schema {
-        Schema::from(serde_json::from_str::<Value>(json).expect("invalid json string"))
+    #[track_caller]
+    fn check_full(json: &str, type_graph: &str) {
+        let json = serde_json::from_str::<Value>(json).expect("invalid json string");
+        assert_eq!(type_graph, format!("{}", TypeGraph::from(json)));
+    }
+
+    #[track_caller]
+    fn check_rootless(json: &str, rootless_type_graph: &str) {
+        let json = serde_json::from_str::<Value>(json).expect("invalid json string");
+        assert_eq!(
+            rootless_type_graph,
+            format!("{}", TypeGraph::from(json))
+                .split_once(';')
+                .expect("expected root to be separated by ; delimiter")
+                .1
+        );
     }
 
     #[test]
-    fn test() {
-        let json = r#"
-        [
-            { "val": 1, "next": null, "prev": null },
-            { "val": 1, "next": { "val": 2, "next": null, "prev": null }, "prev": null },
-            { "val": 1, "next": null, "prev": { "val": 2, "next": null, "prev": null } }
-        ]
-        "#;
+    fn linked_list() {
+        check_rootless(
+            r#"
+            [
+                { "val": 1, "next": null, "prev": null },
+                { "val": 1, "next": { "val": 2, "next": null, "prev": null }, "prev": null },
+                { "val": 1, "next": null, "prev": { "val": 2, "next": null, "prev": null } }
+            ]
+            "#,
+            "[{next:next?,prev:next?,val:int}]",
+        );
 
-        let schema = schema(json);
-        println!("{}", schema);
+        check_full(
+            r#"
+            {
+                "val": 1,
+                "prev": {"val": 2, "prev": null, "next": null},
+                "next": {
+                    "val": 3,
+                    "prev": null,
+                    "next": {"val": 4, "prev": null, "next": null}
+                }
+            }
+            "#,
+            "next;{next:next?,prev:next?,val:int}",
+        );
+    }
 
-        let type_graph = TypeGraph::from(schema);
-        println!("{:#?}", type_graph);
-        println!("{}", type_graph);
+    #[test]
+    fn tree() {
+        check_full(
+            r#"
+            {
+                "name": "Root",
+                "children": [
+                    {
+                        "name": "Child1",
+                        "children": []
+                    },
+                    {
+                        "name": "Child2",
+                        "children": [
+                            {
+                                "name": "Grandchild",
+                                "children": []
+                            }
+                        ]
+                    }
+                ]
+            }
+            "#,
+            "children;{children:[children],name:str}",
+        );
     }
 }

@@ -633,8 +633,19 @@ mod tests {
         check(r#"[{"a":1}, {}]"#, "[{a:int?}]");
         check(r#"[{"a":1}, {"b":"x"}]"#, "[{a:int?,b:str?}]");
         check(
-            r#"[{"a":1}, {"a":2, "b":"x"}, {"a":2, "c":3.14}]"#,
+            r#"[{"a":1}, {"a":2, "b":"x"}, {"c":3.14, "a":2}]"#,
             "[{a:int,b:str?,c:float?}]",
+        );
+
+        // mixed nesting
+        check(
+            r#"
+            [
+                {"a": [{"b": [1, 2]}]},
+                {"a": [{"b": [3]}]}
+            ]
+            "#,
+            "[{a:[{b:[int]}]}]",
         );
 
         // object
@@ -642,6 +653,10 @@ mod tests {
         check(r#"{"x": null}"#, "{x:null}");
         check(r#"{"x": [1,2]}"#, "{x:[int]}");
         check(r#"{"x": [1, "a", null]}"#, "{x:[|int|str|?]}");
+        check(
+            r#"{"a": {"b": {"c": {"d": {"e": 1}}}}}"#,
+            "{a:{b:{c:{d:{e:int}}}}}",
+        );
     }
 
     #[test]

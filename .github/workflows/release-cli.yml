@@ -5,16 +5,9 @@ on:
     workflow_dispatch: {}
 
 jobs:
-    # Linux matrix
-    build-linux:
-        name: Build (Linux) ${{ matrix.target }}
+    build-linux-x86_64:
+        name: Build (Linux)
         runs-on: ubuntu-latest
-        strategy:
-            matrix:
-                target:
-                    - x86_64-unknown-linux-gnu
-                    - aarch64-unknown-linux-gnu
-                    - i686-unknown-linux-gnu
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -25,19 +18,43 @@ jobs:
                   toolchain: stable
 
             - name: Add target
-              run: rustup target add ${{ matrix.target }}
+              run: rustup target add x86_64-unknown-linux-gnu
 
-            - name: Build (package=jcg, profile=cli)
-              run: cargo build --package jcg --profile cli --target "${{ matrix.target }}"
+            - name: Build x86_64-unknown-linux-gnu
+              run: cargo build --package jcg --profile cli --target x86_64-unknown-linux-gnu
 
             - name: Upload artifact (Linux)
               uses: actions/upload-artifact@v4
               with:
-                  name: jcg-${{ matrix.target }}
-                  path: target/${{ matrix.target }}/cli/jcg*
+                  name: jcg-x86_64-unknown-linux-gnu
+                  path: target/x86_64-unknown-linux-gnu/cli/jcg*
+
+    build-linux-arm64:
+        name: Build (Linux ARM64)
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+
+            - name: Add target
+              run: rustup target add aarch64-unknown-linux-gnu
+
+            - name: Build aarch64-unknown-linux-gnu
+              run: cargo build --package jcg --profile cli --target aarch64-unknown-linux-gnu
+
+            - name: Upload artifact (Linux)
+              uses: actions/upload-artifact@v4
+              with:
+                  name: jcg-aarch64-unknown-linux-gnu
+                  path: target/aarch64-unknown-linux-gnu/cli/jcg*
 
     # Windows MSVC (x86_64 + i686)
-    build-windows-msvc:
+    build-windows-x86:
         name: Build (Windows MSVC)
         runs-on: windows-latest
         steps:
@@ -70,7 +87,6 @@ jobs:
                   name: jcg-i686-pc-windows-msvc
                   path: target/i686-pc-windows-msvc/cli/jcg*.exe
 
-    # Windows ARM64 MSVC (runner: windows-11-arm)
     build-windows-arm64:
         name: Build (Windows ARM64 MSVC)
         runs-on: windows-11-arm

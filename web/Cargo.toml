@@ -1,12 +1,7 @@
 [package]
 name = "jsoncodegen-web"
-version = "0.3.1"
-edition = "2024"
-authors = ["zahash <zahash.z@gmail.com>"]
-description = "json code generation web"
-license = "MIT"
-repository = "https://github.com/zahash/jsoncodegen/"
-publish = false
+version.workspace = true
+edition.workspace = true
 
 [lib]
 crate-type = ["cdylib"]

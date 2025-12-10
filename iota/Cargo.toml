@@ -1,4 +1,4 @@
 [package]
 name = "jsoncodegen-iota"
-edition = "2024"
-publish = false
+version.workspace = true
+edition.workspace = true

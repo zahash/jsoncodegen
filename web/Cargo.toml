@@ -2,6 +2,7 @@
 name = "jsoncodegen-web"
 version.workspace = true
 edition.workspace = true
+publish = false
 
 [lib]
 crate-type = ["cdylib"]

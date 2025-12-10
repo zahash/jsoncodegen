@@ -2,6 +2,7 @@
 name = "jsoncodegen-rust"
 version.workspace = true
 edition.workspace = true
+publish = false
 
 [dependencies]
 convert_case = "0.10"

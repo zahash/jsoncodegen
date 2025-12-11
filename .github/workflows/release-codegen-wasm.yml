@@ -60,7 +60,7 @@ jobs:
               uses: softprops/action-gh-release@v1
               with:
                   tag_name: ${{ github.event.inputs.package }}-wasm32-wasip1-${{ github.event.inputs.version }}
-                  name: ${{ github.event.inputs.package }} WASM ${{ github.event.inputs.version }}
+                  name: ${{ github.event.inputs.package }} wasm32-wasip1 v${{ github.event.inputs.version }}
                   draft: false
                   prerelease: false
                   files: artifacts/${{ github.event.inputs.package }}-wasm32-wasip1.wasm

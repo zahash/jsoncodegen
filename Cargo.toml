@@ -28,6 +28,8 @@ lto = true
 codegen-units = 1
 
 # cargo build -p jcg --profile cli
+# cargo build -p jsoncodegen-java --profile cli --target wasm32-wasip1
+
 # cargo build -p jsoncodegen-web --target wasm32-unknown-unknown --profile web
 
 # cargo install wasm-bindgen-cli

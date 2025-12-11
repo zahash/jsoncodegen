@@ -2,145 +2,185 @@ name: Release CLI
 
 # Manual trigger from the GitHub UI
 on:
-    workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number (e.g., 0.4.0)"
+        required: true
+        type: string
 
 jobs:
-    build-linux-x86_64:
-        name: Build (Linux)
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  build-linux-x86_64:
+    name: Build (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Install Rust
-              uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: stable
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
-            - name: Add target
-              run: rustup target add x86_64-unknown-linux-gnu
+      - name: Add target
+        run: rustup target add x86_64-unknown-linux-gnu
 
-            - name: Build x86_64-unknown-linux-gnu
-              run: cargo build --package jcg --profile cli --target x86_64-unknown-linux-gnu
+      - name: Build x86_64-unknown-linux-gnu
+        run: cargo build --package jcg --profile cli --target x86_64-unknown-linux-gnu
 
-            - name: Upload artifact (Linux)
-              uses: actions/upload-artifact@v4
-              with:
-                  name: jcg-x86_64-unknown-linux-gnu
-                  path: target/x86_64-unknown-linux-gnu/cli/jcg*
+      - name: Upload artifact (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: jcg-x86_64-unknown-linux-gnu
+          path: target/x86_64-unknown-linux-gnu/cli/jcg*
 
-    build-linux-arm64:
-        name: Build (Linux ARM64)
-        runs-on: ubuntu-24.04-arm
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  build-linux-arm64:
+    name: Build (Linux ARM64)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Install Rust
-              uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: stable
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
-            - name: Add target
-              run: rustup target add aarch64-unknown-linux-gnu
+      - name: Add target
+        run: rustup target add aarch64-unknown-linux-gnu
 
-            - name: Build aarch64-unknown-linux-gnu
-              run: cargo build --package jcg --profile cli --target aarch64-unknown-linux-gnu
+      - name: Build aarch64-unknown-linux-gnu
+        run: cargo build --package jcg --profile cli --target aarch64-unknown-linux-gnu
 
-            - name: Upload artifact (Linux)
-              uses: actions/upload-artifact@v4
-              with:
-                  name: jcg-aarch64-unknown-linux-gnu
-                  path: target/aarch64-unknown-linux-gnu/cli/jcg*
+      - name: Upload artifact (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: jcg-aarch64-unknown-linux-gnu
+          path: target/aarch64-unknown-linux-gnu/cli/jcg*
 
-    # Windows MSVC (x86_64 + i686)
-    build-windows-x86:
-        name: Build (Windows MSVC)
-        runs-on: windows-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  # Windows MSVC (x86_64 + i686)
+  build-windows-x86:
+    name: Build (Windows MSVC)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Install Rust
-              uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: stable
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
-            - name: Add MSVC targets
-              run: rustup target add x86_64-pc-windows-msvc i686-pc-windows-msvc
+      - name: Add MSVC targets
+        run: rustup target add x86_64-pc-windows-msvc i686-pc-windows-msvc
 
-            - name: Build x86_64-pc-windows-msvc
-              run: cargo build --package jcg --profile cli --target x86_64-pc-windows-msvc
+      - name: Build x86_64-pc-windows-msvc
+        run: cargo build --package jcg --profile cli --target x86_64-pc-windows-msvc
 
-            - name: Build i686-pc-windows-msvc
-              run: cargo build --package jcg --profile cli --target i686-pc-windows-msvc
+      - name: Build i686-pc-windows-msvc
+        run: cargo build --package jcg --profile cli --target i686-pc-windows-msvc
 
-            - name: Upload x86_64 Windows artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: jcg-x86_64-pc-windows-msvc
-                  path: target/x86_64-pc-windows-msvc/cli/jcg*.exe
+      - name: Upload x86_64 Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jcg-x86_64-pc-windows-msvc
+          path: target/x86_64-pc-windows-msvc/cli/jcg*.exe
 
-            - name: Upload i686 Windows artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: jcg-i686-pc-windows-msvc
-                  path: target/i686-pc-windows-msvc/cli/jcg*.exe
+      - name: Upload i686 Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jcg-i686-pc-windows-msvc
+          path: target/i686-pc-windows-msvc/cli/jcg*.exe
 
-    build-windows-arm64:
-        name: Build (Windows ARM64 MSVC)
-        runs-on: windows-11-arm
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  build-windows-arm64:
+    name: Build (Windows ARM64 MSVC)
+    runs-on: windows-11-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Install Rust
-              uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: stable
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
-            - name: Add ARM64 MSVC target
-              run: rustup target add aarch64-pc-windows-msvc
+      - name: Add ARM64 MSVC target
+        run: rustup target add aarch64-pc-windows-msvc
 
-            - name: Build aarch64-pc-windows-msvc
-              run: cargo build --package jcg --profile cli --target aarch64-pc-windows-msvc
+      - name: Build aarch64-pc-windows-msvc
+        run: cargo build --package jcg --profile cli --target aarch64-pc-windows-msvc
 
-            - name: Upload ARM64 Windows artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: jcg-aarch64-pc-windows-msvc
-                  path: target/aarch64-pc-windows-msvc/cli/jcg*.exe
+      - name: Upload ARM64 Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jcg-aarch64-pc-windows-msvc
+          path: target/aarch64-pc-windows-msvc/cli/jcg*.exe
 
-    # macOS (x86_64 + aarch64)
-    build-macos:
-        name: Build (macOS)
-        runs-on: macos-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  # macOS (x86_64 + aarch64)
+  build-macos:
+    name: Build (macOS)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Install Rust
-              uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: stable
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
-            - name: Add macOS targets
-              run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+      - name: Add macOS targets
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
-            - name: Build x86_64-apple-darwin
-              run: cargo build --package jcg --profile cli --target x86_64-apple-darwin
+      - name: Build x86_64-apple-darwin
+        run: cargo build --package jcg --profile cli --target x86_64-apple-darwin
 
-            - name: Build aarch64-apple-darwin
-              run: cargo build --package jcg --profile cli --target aarch64-apple-darwin
+      - name: Build aarch64-apple-darwin
+        run: cargo build --package jcg --profile cli --target aarch64-apple-darwin
 
-            - name: Upload x86_64 macOS artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: jcg-x86_64-apple-darwin
-                  path: target/x86_64-apple-darwin/cli/jcg*
+      - name: Upload x86_64 macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jcg-x86_64-apple-darwin
+          path: target/x86_64-apple-darwin/cli/jcg*
 
-            - name: Upload aarch64 macOS artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: jcg-aarch64-apple-darwin
-                  path: target/aarch64-apple-darwin/cli/jcg*
+      - name: Upload aarch64 macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jcg-aarch64-apple-darwin
+          path: target/aarch64-apple-darwin/cli/jcg*
+
+  create-release:
+    name: Create GitHub Release
+    needs:
+      - build-linux-x86_64
+      - build-linux-arm64
+      - build-windows-x86
+      - build-windows-arm64
+      - build-macos
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: cli-v${{ github.event.inputs.version }}
+          name: CLI v${{ github.event.inputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/jcg-x86_64-unknown-linux-gnu/*
+            artifacts/jcg-aarch64-unknown-linux-gnu/*
+            artifacts/jcg-x86_64-pc-windows-msvc/*
+            artifacts/jcg-i686-pc-windows-msvc/*
+            artifacts/jcg-aarch64-pc-windows-msvc/*
+            artifacts/jcg-x86_64-apple-darwin/*
+            artifacts/jcg-aarch64-apple-darwin/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

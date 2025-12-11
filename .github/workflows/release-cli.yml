@@ -28,11 +28,14 @@ jobs:
       - name: Build x86_64-unknown-linux-gnu
         run: cargo build --package jcg --profile cli --target x86_64-unknown-linux-gnu
 
+      - name: Rename binary
+        run: mv target/x86_64-unknown-linux-gnu/cli/jcg target/jcg-x86_64-unknown-linux-gnu
+
       - name: Upload artifact (Linux)
         uses: actions/upload-artifact@v4
         with:
           name: jcg-x86_64-unknown-linux-gnu
-          path: target/x86_64-unknown-linux-gnu/cli/jcg
+          path: target/jcg-x86_64-unknown-linux-gnu
 
   build-linux-arm64:
     name: Build (Linux ARM64)
@@ -52,11 +55,14 @@ jobs:
       - name: Build aarch64-unknown-linux-gnu
         run: cargo build --package jcg --profile cli --target aarch64-unknown-linux-gnu
 
+      - name: Rename Binary
+        run: mv target/aarch64-unknown-linux-gnu/cli/jcg target/jcg-aarch64-unknown-linux-gnu
+
       - name: Upload artifact (Linux)
         uses: actions/upload-artifact@v4
         with:
           name: jcg-aarch64-unknown-linux-gnu
-          path: target/aarch64-unknown-linux-gnu/cli/jcg
+          path: target/jcg-aarch64-unknown-linux-gnu
 
   # Windows MSVC (x86_64 + i686)
   build-windows-x86:
@@ -80,17 +86,23 @@ jobs:
       - name: Build i686-pc-windows-msvc
         run: cargo build --package jcg --profile cli --target i686-pc-windows-msvc
 
+      - name: Rename x86_64 Binary
+        run: move target/x86_64-pc-windows-msvc/cli/jcg.exe target/jcg-x86_64-pc-windows-msvc.exe
+
+      - name: Rename i686 Binary
+        run: move target/i686-pc-windows-msvc/cli/jcg.exe target/jcg-i686-pc-windows-msvc.exe
+
       - name: Upload x86_64 Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-x86_64-pc-windows-msvc
-          path: target/x86_64-pc-windows-msvc/cli/jcg.exe
+          path: target/jcg-x86_64-pc-windows-msvc.exe
 
       - name: Upload i686 Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-i686-pc-windows-msvc
-          path: target/i686-pc-windows-msvc/cli/jcg.exe
+          path: target/jcg-i686-pc-windows-msvc.exe
 
   build-windows-arm64:
     name: Build (Windows ARM64 MSVC)
@@ -110,11 +122,14 @@ jobs:
       - name: Build aarch64-pc-windows-msvc
         run: cargo build --package jcg --profile cli --target aarch64-pc-windows-msvc
 
+      - name: Rename Binary
+        run: move target/aarch64-pc-windows-msvc/cli/jcg.exe target/jcg-aarch64-pc-windows-msvc.exe
+
       - name: Upload ARM64 Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-aarch64-pc-windows-msvc
-          path: target/aarch64-pc-windows-msvc/cli/jcg.exe
+          path: target/jcg-aarch64-pc-windows-msvc.exe
 
   # macOS (x86_64 + aarch64)
   build-macos:
@@ -138,17 +153,23 @@ jobs:
       - name: Build aarch64-apple-darwin
         run: cargo build --package jcg --profile cli --target aarch64-apple-darwin
 
+      - name: Rename x86_64 Binary
+        run: mv target/x86_64-apple-darwin/cli/jcg target/jcg-x86_64-apple-darwin
+
+      - name: Rename aarch64 Binary
+        run: mv target/aarch64-apple-darwin/cli/jcg target/jcg-aarch64-apple-darwin
+
       - name: Upload x86_64 macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-x86_64-apple-darwin
-          path: target/x86_64-apple-darwin/cli/jcg
+          path: target/jcg-x86_64-apple-darwin
 
       - name: Upload aarch64 macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-aarch64-apple-darwin
-          path: target/aarch64-apple-darwin/cli/jcg
+          path: target/jcg-aarch64-apple-darwin
 
   create-release:
     name: Create GitHub Release
@@ -174,6 +195,6 @@ jobs:
           name: CLI v${{ github.event.inputs.version }}
           draft: false
           prerelease: false
-          files: artifacts/**
+          files: artifacts/jcg-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -33,15 +33,13 @@ jobs:
         run: cargo build --package ${{ github.event.inputs.package }} --profile cli --target wasm32-wasip1
 
       - name: Rename binary
-        run: |
-          mkdir -p artifacts
-          cp target/wasm32-wasip1/cli/${{ github.event.inputs.package }}.wasm artifacts/${{ github.event.inputs.package }}-wasm32-wasip1.wasm
+        run: mv target/wasm32-wasip1/cli/${{ github.event.inputs.package }}.wasm ${{ github.event.inputs.package }}-wasm32-wasip1.wasm
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.inputs.package }}-wasm32-wasip1
-          path: artifacts/${{ github.event.inputs.package }}-wasm32-wasip1.wasm
+          path: ${{ github.event.inputs.package }}-wasm32-wasip1.wasm
 
   create-release:
     name: Create GitHub Release

@@ -9,5 +9,7 @@ repository = "https://github.com/zahash/jsoncodegen/"
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+serde = { version = "1", features = ["derive"] }
 wasmtime = "39"
 wasmtime-wasi = "39"

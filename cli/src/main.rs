@@ -1,5 +1,12 @@
 use clap::Parser;
-use std::{env, error::Error, fs::File, path::PathBuf};
+use serde::Deserialize;
+use std::{
+    env,
+    error::Error,
+    fs::{self, File},
+    io::Write,
+    path::PathBuf,
+};
 use wasmtime::{Engine, Linker, Module, Store};
 use wasmtime_wasi::WasiCtxBuilder;
 
@@ -34,10 +41,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         })
         .ok_or("default runtime directory unavailable. please specify an alternate manually.")?;
 
-    // TODO: download the wasm binary if not available locally
-    let codegen_wasm_path = runtime_dir.join(format!("jsoncodegen-{}.wasm", args.lang));
+    let codegen_wasm_path =
+        runtime_dir.join(format!("jsoncodegen-{}-wasm32-wasip1.wasm", args.lang));
+
+    // Check if WASM binary exists locally, if not download it
     if !codegen_wasm_path.is_file() {
-        return Err("unsupported language".into());
+        eprintln!("WASM binary not found locally");
+        fetch_latest_wasm_release(&args.lang, &codegen_wasm_path)?;
     }
 
     let ctx = {
@@ -72,5 +82,80 @@ fn main() -> Result<(), Box<dyn Error>> {
     let start = instance.get_typed_func::<(), ()>(&mut store, "_start")?;
     start.call(&mut store, ())?;
 
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct Release {
+    tag_name: String,
+    assets: Vec<Asset>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Asset {
+    name: String,
+    browser_download_url: String,
+}
+
+fn fetch_latest_wasm_release(lang: &str, dest_path: &PathBuf) -> Result<(), Box<dyn Error>> {
+    eprintln!("Fetching latest WASM release info for language `{}`", lang);
+
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("jsoncodegen")
+        .build()?;
+    let mut releases: Vec<Release> = client
+        .get("https://api.github.com/repos/zahash/jsoncodegen/releases")
+        .send()?
+        .json()?;
+
+    // Filter releases that match the pattern: jsoncodegen-{lang}-wasm32-wasip1-{version}
+    let tag_prefix = format!("jsoncodegen-{}-wasm32-wasip1-", lang);
+    releases.retain(|release| release.tag_name.starts_with(&tag_prefix));
+
+    // Sort by version number (descending) - extract the number after the last dash
+    let latest_release = releases
+        .into_iter()
+        .max_by_key(|release| {
+            release
+                .tag_name
+                .strip_prefix(&tag_prefix)
+                .and_then(|version| version.parse::<usize>().ok())
+                .unwrap_or(0)
+        })
+        .ok_or_else(|| format!("No WASM releases found for language `{}`", lang))?;
+
+    eprintln!("latest release found: {}", latest_release.tag_name);
+
+    let asset_name = format!("jsoncodegen-{}-wasm32-wasip1.wasm", lang);
+    let asset = latest_release
+        .assets
+        .into_iter()
+        .find(|a| a.name == asset_name)
+        .ok_or_else(|| {
+            format!(
+                "WASM asset `{}` not found in release `{}`",
+                asset_name, latest_release.tag_name
+            )
+        })?;
+
+    eprintln!(
+        "Downloading WASM binary from: {}",
+        asset.browser_download_url
+    );
+
+    let response = client.get(asset.browser_download_url).send()?;
+    if !response.status().is_success() {
+        return Err(format!("Failed to download: HTTP {}", response.status()).into());
+    }
+    let bytes = response.bytes()?;
+
+    // Ensure the parent directory exists
+    if let Some(parent) = dest_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let mut file = File::create(dest_path)?;
+    file.write_all(&bytes)?;
+
+    eprintln!("Successfully downloaded to: {}", dest_path.display());
     Ok(())
 }

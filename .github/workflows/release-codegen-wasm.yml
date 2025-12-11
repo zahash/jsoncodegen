@@ -2,67 +2,67 @@ name: Release CodeGen WASM Plugin
 
 # Manual trigger from the GitHub UI
 on:
-    workflow_dispatch:
-        inputs:
-            package:
-                description: "Package name (e.g., jsoncodegen-java, jsoncodegen-rust)"
-                required: true
-                type: string
-            version:
-                description: "Version number (e.g., 1234)"
-                required: true
-                type: string
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package name (e.g., jsoncodegen-java, jsoncodegen-rust)"
+        required: true
+        type: string
+      version:
+        description: "Version number (e.g., 1234)"
+        required: true
+        type: string
 
 jobs:
-    build-wasm:
-        name: Build WASM (wasm32-wasip1)
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  build-wasm:
+    name: Build WASM (wasm32-wasip1)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Install Rust
-              uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: stable
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
-            - name: Add wasm32-wasip1 target
-              run: rustup target add wasm32-wasip1
+      - name: Add wasm32-wasip1 target
+        run: rustup target add wasm32-wasip1
 
-            - name: Build wasm32-wasip1
-              run: cargo build --package ${{ github.event.inputs.package }} --profile cli --target wasm32-wasip1
+      - name: Build wasm32-wasip1
+        run: cargo build --package ${{ github.event.inputs.package }} --profile cli --target wasm32-wasip1
 
-            - name: Rename binary
-              run: |
-                  mkdir -p artifacts
-                  cp target/wasm32-wasip1/cli/${{ github.event.inputs.package }}.wasm artifacts/${{ github.event.inputs.package }}-wasm32-wasip1.wasm
+      - name: Rename binary
+        run: |
+          mkdir -p artifacts
+          cp target/wasm32-wasip1/cli/${{ github.event.inputs.package }}.wasm artifacts/${{ github.event.inputs.package }}-wasm32-wasip1.wasm
 
-            - name: Upload artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ${{ github.event.inputs.package }}-wasm32-wasip1
-                  path: artifacts/${{ github.event.inputs.package }}-wasm32-wasip1.wasm
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.package }}-wasm32-wasip1
+          path: artifacts/${{ github.event.inputs.package }}-wasm32-wasip1.wasm
 
-    create-release:
-        name: Create GitHub Release
-        needs: build-wasm
-        runs-on: ubuntu-latest
-        permissions:
-            contents: write
-        steps:
-            - name: Download artifacts
-              uses: actions/download-artifact@v4
-              with:
-                  name: ${{ github.event.inputs.package }}-wasm32-wasip1
-                  path: artifacts
+  create-release:
+    name: Create GitHub Release
+    needs: build-wasm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.event.inputs.package }}-wasm32-wasip1
+          path: artifacts
 
-            - name: Create Release
-              uses: softprops/action-gh-release@v1
-              with:
-                  tag_name: ${{ github.event.inputs.package }}-wasm32-wasip1-${{ github.event.inputs.version }}
-                  name: ${{ github.event.inputs.package }} wasm32-wasip1 v${{ github.event.inputs.version }}
-                  draft: false
-                  prerelease: false
-                  files: artifacts/${{ github.event.inputs.package }}-wasm32-wasip1.wasm
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.package }}-wasm32-wasip1-${{ github.event.inputs.version }}
+          name: ${{ github.event.inputs.package }} wasm32-wasip1 v${{ github.event.inputs.version }}
+          draft: false
+          prerelease: false
+          files: artifacts/${{ github.event.inputs.package }}-wasm32-wasip1.wasm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

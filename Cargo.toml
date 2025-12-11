@@ -26,6 +26,7 @@ inherits = "release"
 opt-level = "z"
 lto = true
 codegen-units = 1
+panic = "abort"
 
 # cargo build -p jcg --profile cli
 # cargo build -p jsoncodegen-java --profile cli --target wasm32-wasip1

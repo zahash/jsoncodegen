@@ -28,14 +28,17 @@ jobs:
       - name: Build x86_64-unknown-linux-gnu
         run: cargo build --package jcg --profile cli --target x86_64-unknown-linux-gnu
 
-      - name: Rename binary
-        run: mv target/x86_64-unknown-linux-gnu/cli/jcg target/jcg-x86_64-unknown-linux-gnu
+      - name: Rename Binary
+        run: mv target/x86_64-unknown-linux-gnu/cli/jcg jcg-x86_64-unknown-linux-gnu
+
+      - name: Zip Binary
+        run: zip jcg-x86_64-unknown-linux-gnu.zip jcg-x86_64-unknown-linux-gnu
 
       - name: Upload artifact (Linux)
         uses: actions/upload-artifact@v4
         with:
           name: jcg-x86_64-unknown-linux-gnu
-          path: target/jcg-x86_64-unknown-linux-gnu
+          path: jcg-x86_64-unknown-linux-gnu.zip
 
   build-linux-arm64:
     name: Build (Linux ARM64)
@@ -56,13 +59,16 @@ jobs:
         run: cargo build --package jcg --profile cli --target aarch64-unknown-linux-gnu
 
       - name: Rename Binary
-        run: mv target/aarch64-unknown-linux-gnu/cli/jcg target/jcg-aarch64-unknown-linux-gnu
+        run: mv target/aarch64-unknown-linux-gnu/cli/jcg jcg-aarch64-unknown-linux-gnu
+
+      - name: Zip Binary
+        run: zip jcg-aarch64-unknown-linux-gnu.zip jcg-aarch64-unknown-linux-gnu
 
       - name: Upload artifact (Linux)
         uses: actions/upload-artifact@v4
         with:
           name: jcg-aarch64-unknown-linux-gnu
-          path: target/jcg-aarch64-unknown-linux-gnu
+          path: jcg-aarch64-unknown-linux-gnu.zip
 
   # Windows MSVC (x86_64 + i686)
   build-windows-x86:
@@ -87,22 +93,28 @@ jobs:
         run: cargo build --package jcg --profile cli --target i686-pc-windows-msvc
 
       - name: Rename x86_64 Binary
-        run: move target/x86_64-pc-windows-msvc/cli/jcg.exe target/jcg-x86_64-pc-windows-msvc.exe
+        run: move target/x86_64-pc-windows-msvc/cli/jcg.exe jcg-x86_64-pc-windows-msvc.exe
 
       - name: Rename i686 Binary
-        run: move target/i686-pc-windows-msvc/cli/jcg.exe target/jcg-i686-pc-windows-msvc.exe
+        run: move target/i686-pc-windows-msvc/cli/jcg.exe jcg-i686-pc-windows-msvc.exe
+
+      - name: Zip x86_64 Binary
+        run: Compress-Archive -Path jcg-x86_64-pc-windows-msvc.exe -DestinationPath jcg-x86_64-pc-windows-msvc.zip
+
+      - name: Zip i686 Binary
+        run: Compress-Archive -Path jcg-i686-pc-windows-msvc.exe -DestinationPath jcg-i686-pc-windows-msvc.zip
 
       - name: Upload x86_64 Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-x86_64-pc-windows-msvc
-          path: target/jcg-x86_64-pc-windows-msvc.exe
+          path: jcg-x86_64-pc-windows-msvc.zip
 
       - name: Upload i686 Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-i686-pc-windows-msvc
-          path: target/jcg-i686-pc-windows-msvc.exe
+          path: jcg-i686-pc-windows-msvc.zip
 
   build-windows-arm64:
     name: Build (Windows ARM64 MSVC)
@@ -123,13 +135,16 @@ jobs:
         run: cargo build --package jcg --profile cli --target aarch64-pc-windows-msvc
 
       - name: Rename Binary
-        run: move target/aarch64-pc-windows-msvc/cli/jcg.exe target/jcg-aarch64-pc-windows-msvc.exe
+        run: move target/aarch64-pc-windows-msvc/cli/jcg.exe jcg-aarch64-pc-windows-msvc.exe
+
+      - name: Zip Binary
+        run: Compress-Archive -Path jcg-aarch64-pc-windows-msvc.exe -DestinationPath jcg-aarch64-pc-windows-msvc.zip
 
       - name: Upload ARM64 Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-aarch64-pc-windows-msvc
-          path: target/jcg-aarch64-pc-windows-msvc.exe
+          path: jcg-aarch64-pc-windows-msvc.zip
 
   # macOS (x86_64 + aarch64)
   build-macos:
@@ -154,22 +169,28 @@ jobs:
         run: cargo build --package jcg --profile cli --target aarch64-apple-darwin
 
       - name: Rename x86_64 Binary
-        run: mv target/x86_64-apple-darwin/cli/jcg target/jcg-x86_64-apple-darwin
+        run: mv target/x86_64-apple-darwin/cli/jcg jcg-x86_64-apple-darwin
 
       - name: Rename aarch64 Binary
-        run: mv target/aarch64-apple-darwin/cli/jcg target/jcg-aarch64-apple-darwin
+        run: mv target/aarch64-apple-darwin/cli/jcg jcg-aarch64-apple-darwin
+
+      - name: Zip x86_64 Binary
+        run: zip jcg-x86_64-apple-darwin.zip jcg-x86_64-apple-darwin
+
+      - name: Zip aarch64 Binary
+        run: zip jcg-aarch64-apple-darwin.zip jcg-aarch64-apple-darwin
 
       - name: Upload x86_64 macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-x86_64-apple-darwin
-          path: target/jcg-x86_64-apple-darwin
+          path: jcg-x86_64-apple-darwin.zip
 
       - name: Upload aarch64 macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-aarch64-apple-darwin
-          path: target/jcg-aarch64-apple-darwin
+          path: jcg-aarch64-apple-darwin.zip
 
   create-release:
     name: Create GitHub Release

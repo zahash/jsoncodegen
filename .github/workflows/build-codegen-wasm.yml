@@ -26,7 +26,7 @@ jobs:
         run: rustup target add wasm32-wasip1
 
       - name: Build wasm32-wasip1
-        run: cargo build --package jsoncodegen-${{ github.event.inputs.lang }} --profile cli --target wasm32-wasip1
+        run: cargo build --package jsoncodegen-${{ github.event.inputs.lang }} --profile wasm --target wasm32-wasip1
 
       - name: Rename binary
         run: mv target/wasm32-wasip1/cli/jsoncodegen-${{ github.event.inputs.lang }}.wasm jsoncodegen-${{ github.event.inputs.lang }}-wasm32-wasip1.wasm

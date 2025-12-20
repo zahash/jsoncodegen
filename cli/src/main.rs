@@ -1,5 +1,4 @@
 use clap::Parser;
-use serde::Deserialize;
 use std::{
     env,
     error::Error,
@@ -85,65 +84,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[derive(Debug, Deserialize)]
-struct Release {
-    tag_name: String,
-    assets: Vec<Asset>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Asset {
-    name: String,
-    browser_download_url: String,
-}
-
 fn fetch_latest_wasm_release(lang: &str, dest_path: &PathBuf) -> Result<(), Box<dyn Error>> {
     eprintln!("Fetching latest WASM release info for language `{}`", lang);
 
     let client = reqwest::blocking::Client::builder()
         .user_agent("jsoncodegen")
         .build()?;
-    let mut releases: Vec<Release> = client
-        .get("https://api.github.com/repos/zahash/jsoncodegen/releases")
-        .send()?
-        .json()?;
 
-    // Filter releases that match the pattern: jsoncodegen-{lang}-wasm32-wasip1-{version}
-    let tag_prefix = format!("jsoncodegen-{}-wasm32-wasip1-", lang);
-    releases.retain(|release| release.tag_name.starts_with(&tag_prefix));
-
-    // Sort by version number (descending) - extract the number after the last dash
-    let latest_release = releases
-        .into_iter()
-        .max_by_key(|release| {
-            release
-                .tag_name
-                .strip_prefix(&tag_prefix)
-                .and_then(|version| version.parse::<usize>().ok())
-                .unwrap_or(0)
-        })
-        .ok_or_else(|| format!("No WASM releases found for language `{}`", lang))?;
-
-    eprintln!("latest release found: {}", latest_release.tag_name);
-
-    let asset_name = format!("jsoncodegen-{}-wasm32-wasip1.wasm", lang);
-    let asset = latest_release
-        .assets
-        .into_iter()
-        .find(|a| a.name == asset_name)
-        .ok_or_else(|| {
-            format!(
-                "WASM asset `{}` not found in release `{}`",
-                asset_name, latest_release.tag_name
-            )
-        })?;
-
-    eprintln!(
-        "Downloading WASM binary from: {}",
-        asset.browser_download_url
+    let url = format!(
+        "https://zahash.github.io/jsoncodegen-{}-wasm32-wasip1.wasm",
+        lang
     );
 
-    let response = client.get(asset.browser_download_url).send()?;
+    let response = client.get(&url).send()?;
     if !response.status().is_success() {
         return Err(format!("Failed to download: HTTP {}", response.status()).into());
     }

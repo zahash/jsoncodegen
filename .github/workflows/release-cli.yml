@@ -160,9 +160,8 @@ jobs:
           name: jcg-aarch64-pc-windows-msvc
           path: jcg-aarch64-pc-windows-msvc.zip
 
-  # macOS (x86_64 + aarch64)
-  build-macos:
-    name: Build (macOS)
+  build-macos-x86_64:
+    name: Build (macOS x86_64)
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -173,34 +172,49 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Add macOS targets
-        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+      - name: Add x86_64 target
+        run: rustup target add x86_64-apple-darwin
 
       - name: Build x86_64-apple-darwin
         run: cargo build --package jsoncodegen-cli --profile cli --target x86_64-apple-darwin
 
-      - name: Build aarch64-apple-darwin
-        run: cargo build --package jsoncodegen-cli --profile cli --target aarch64-apple-darwin
-
-      - name: Rename x86_64 Binary
+      - name: Rename Binary
         run: mv target/x86_64-apple-darwin/cli/jcg jcg-x86_64-apple-darwin
 
-      - name: Rename aarch64 Binary
-        run: mv target/aarch64-apple-darwin/cli/jcg jcg-aarch64-apple-darwin
-
-      - name: Zip x86_64 Binary
+      - name: Zip Binary
         run: zip jcg-x86_64-apple-darwin.zip jcg-x86_64-apple-darwin
 
-      - name: Zip aarch64 Binary
-        run: zip jcg-aarch64-apple-darwin.zip jcg-aarch64-apple-darwin
-
-      - name: Upload x86_64 macOS artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-x86_64-apple-darwin
           path: jcg-x86_64-apple-darwin.zip
 
-      - name: Upload aarch64 macOS artifact
+  build-macos-arm64:
+    name: Build (macOS ARM64)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Add ARM64 target
+        run: rustup target add aarch64-apple-darwin
+
+      - name: Build aarch64-apple-darwin
+        run: cargo build --package jsoncodegen-cli --profile cli --target aarch64-apple-darwin
+
+      - name: Rename Binary
+        run: mv target/aarch64-apple-darwin/cli/jcg jcg-aarch64-apple-darwin
+
+      - name: Zip Binary
+        run: zip jcg-aarch64-apple-darwin.zip jcg-aarch64-apple-darwin
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-aarch64-apple-darwin
@@ -214,7 +228,8 @@ jobs:
       - build-windows-x86_64
       - build-windows-i686
       - build-windows-arm64
-      - build-macos
+      - build-macos-x86_64
+      - build-macos-arm64
     runs-on: ubuntu-latest
     permissions:
       contents: write

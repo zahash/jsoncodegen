@@ -1,11 +1,15 @@
 [package]
-name = "jcg"
+name = "jsoncodegen-cli"
 version.workspace = true
 edition.workspace = true
 authors = ["zahash <zahash.z@gmail.com>"]
 description = "json code generation cli"
 license = "MIT"
 repository = "https://github.com/zahash/jsoncodegen/"
+
+[[bin]]
+name = "jcg"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }

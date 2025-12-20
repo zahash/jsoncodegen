@@ -14,7 +14,7 @@ members = [
 version = "0.5.0"
 edition = "2024"
 
-[profile.web]
+[profile.wasm]
 inherits = "release"
 opt-level = "z"     # Optimize for size
 lto = true          # Enable Link Time Optimization (LTO)
@@ -26,12 +26,11 @@ inherits = "release"
 opt-level = "z"
 lto = true
 codegen-units = 1
-panic = "abort"
 
-# cargo build -p jcg --profile cli
-# cargo build -p jsoncodegen-java --profile cli --target wasm32-wasip1
+# cargo build -p jsoncodegen-cli --profile cli
+# cargo build -p jsoncodegen-java --profile wasm --target wasm32-wasip1
 
-# cargo build -p jsoncodegen-web --target wasm32-unknown-unknown --profile web
+# cargo build -p jsoncodegen-web --profile wasm--target wasm32-unknown-unknown
 
 # cargo install wasm-bindgen-cli
 # wasm-bindgen ./target/wasm32-unknown-unknown/web/jsoncodegen_web.wasm --out-dir ./pkg --target web

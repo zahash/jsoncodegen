@@ -1,4 +1,4 @@
-name: Release CodeGen WASM Plugin
+name: Build CodeGen WASM Plugin
 
 # Manual trigger from the GitHub UI
 on:

@@ -70,9 +70,8 @@ jobs:
           name: jcg-aarch64-unknown-linux-gnu
           path: jcg-aarch64-unknown-linux-gnu.zip
 
-  # Windows MSVC (x86_64 + i686)
-  build-windows-x86:
-    name: Build (Windows MSVC)
+  build-windows-x86_64:
+    name: Build (Windows MSVC x86_64)
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -83,34 +82,49 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Add MSVC targets
-        run: rustup target add x86_64-pc-windows-msvc i686-pc-windows-msvc
+      - name: Add x86_64 MSVC target
+        run: rustup target add x86_64-pc-windows-msvc
 
       - name: Build x86_64-pc-windows-msvc
         run: cargo build --package jsoncodegen-cli --profile cli --target x86_64-pc-windows-msvc
 
-      - name: Build i686-pc-windows-msvc
-        run: cargo build --package jsoncodegen-cli --profile cli --target i686-pc-windows-msvc
-
-      - name: Rename x86_64 Binary
+      - name: Rename Binary
         run: move target/x86_64-pc-windows-msvc/cli/jcg.exe jcg-x86_64-pc-windows-msvc.exe
 
-      - name: Rename i686 Binary
-        run: move target/i686-pc-windows-msvc/cli/jcg.exe jcg-i686-pc-windows-msvc.exe
-
-      - name: Zip x86_64 Binary
+      - name: Zip Binary
         run: Compress-Archive -Path jcg-x86_64-pc-windows-msvc.exe -DestinationPath jcg-x86_64-pc-windows-msvc.zip
 
-      - name: Zip i686 Binary
-        run: Compress-Archive -Path jcg-i686-pc-windows-msvc.exe -DestinationPath jcg-i686-pc-windows-msvc.zip
-
-      - name: Upload x86_64 Windows artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-x86_64-pc-windows-msvc
           path: jcg-x86_64-pc-windows-msvc.zip
 
-      - name: Upload i686 Windows artifact
+  build-windows-i686:
+    name: Build (Windows MSVC i686)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Add i686 MSVC target
+        run: rustup target add i686-pc-windows-msvc
+
+      - name: Build i686-pc-windows-msvc
+        run: cargo build --package jsoncodegen-cli --profile cli --target i686-pc-windows-msvc
+
+      - name: Rename Binary
+        run: move target/i686-pc-windows-msvc/cli/jcg.exe jcg-i686-pc-windows-msvc.exe
+
+      - name: Zip Binary
+        run: Compress-Archive -Path jcg-i686-pc-windows-msvc.exe -DestinationPath jcg-i686-pc-windows-msvc.zip
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: jcg-i686-pc-windows-msvc
@@ -197,7 +211,8 @@ jobs:
     needs:
       - build-linux-x86_64
       - build-linux-arm64
-      - build-windows-x86
+      - build-windows-x86_64
+      - build-windows-i686
       - build-windows-arm64
       - build-macos
     runs-on: ubuntu-latest

@@ -1,0 +1,38 @@
+name: Release CodeGen WASM Plugin
+
+# Manual trigger from the GitHub UI
+on:
+  workflow_dispatch:
+    inputs:
+      lang:
+        description: "lang (e.g., java, rust)"
+        required: true
+        type: string
+
+jobs:
+  build-wasm:
+    name: Build WASM (wasm32-wasip1)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Add wasm32-wasip1 target
+        run: rustup target add wasm32-wasip1
+
+      - name: Build wasm32-wasip1
+        run: cargo build --package jsoncodegen-${{ github.event.inputs.lang }} --profile cli --target wasm32-wasip1
+
+      - name: Rename binary
+        run: mv target/wasm32-wasip1/cli/jsoncodegen-${{ github.event.inputs.lang }}.wasm jsoncodegen-${{ github.event.inputs.lang }}-wasm32-wasip1.wasm
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jsoncodegen-${{ github.event.inputs.lang }}-wasm32-wasip1
+          path: jsoncodegen-${{ github.event.inputs.lang }}-wasm32-wasip1.wasm

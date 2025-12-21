@@ -1,0 +1,6 @@
+[
+    { "event":"click", "x":10, "y":20 },
+    { "event":"scroll", "delta": 300 },
+    { "event":"purchase", "amount": 129.99, "currency":"USD" },
+    { "event":"click", "x":5, "y":10, "timestamp":"2025-01-01T12:00Z" }
+]

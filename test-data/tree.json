@@ -1,0 +1,7 @@
+{
+    "name": "Root",
+    "children": [
+        { "name": "Child1", "children": [] },
+        { "name": "Child2", "children": [{ "name": "Grandchild", "children": [] }] }
+    ]
+}

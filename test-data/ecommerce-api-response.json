@@ -1,0 +1,28 @@
+{
+    "user": {
+        "id": 123,
+        "name": "Alice",
+        "email": "alice@example.com",
+        "verified": true,
+        "address": {
+            "city": "London",
+            "zip": 40512
+        }
+    },
+    "cart": [
+        {
+            "sku": "SKU-123",
+            "qty": 2,
+            "price": 499.99,
+            "metadata": null
+        },
+        {
+            "sku": "SKU-999",
+            "qty": 1,
+            "price": 1299.50,
+            "metadata": { "color": "red" }
+        }
+    ],
+    "payment": null,
+    "discount_codes": ["HOLIDAY", 2024, null]
+}

@@ -1,0 +1,14 @@
+{
+    "version": "1.0",
+    "services": [
+        { "name": "db", "replicas": 2, "env": ["POSTGRES=1", "DEBUG=true"] },
+        { "name": "api", "replicas": 3, "env": null },
+        { "name": "ui", "replicas": 1 },
+        { "name": "cache", "replicas": 1, "env": ["REDIS=1"] }
+    ],
+    "features": {
+        "auth": true,
+        "logging": { "level": "debug", "files": ["a.log", "b.log"] },
+        "metrics": null
+    }
+}

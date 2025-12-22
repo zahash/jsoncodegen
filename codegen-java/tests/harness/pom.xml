@@ -7,6 +7,11 @@
     <artifactId>jsoncodegen</artifactId>
     <version>1.0</version>
 
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -27,6 +32,7 @@
 
     <build>
         <sourceDirectory>src</sourceDirectory>
+        <finalName>jsoncodegen</finalName>
 
         <plugins>
             <plugin>

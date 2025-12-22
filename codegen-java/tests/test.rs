@@ -1,11 +1,10 @@
 use jsoncodegen_java::codegen;
 use pretty_assertions::assert_eq;
+use tokio::process::Command;
 
 use std::{
-    env::{self, temp_dir},
-    fs, io,
+    env, fs, io,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
     sync::LazyLock,
 };
 
@@ -14,12 +13,6 @@ static TEST_DATA: LazyLock<PathBuf> = LazyLock::new(|| {
         .parent()
         .expect("Failed to get parent directory of CARGO_MANIFEST_DIR")
         .join("test-data")
-});
-
-static TEST_RESULTS: LazyLock<PathBuf> = LazyLock::new(|| {
-    let path = env::temp_dir().join("java");
-    fs::create_dir_all(&path).expect("Failed to create <temp_dir>/java directory");
-    path
 });
 
 static TEMPLATE: LazyLock<PathBuf> = LazyLock::new(|| {
@@ -36,66 +29,53 @@ static M2: LazyLock<PathBuf> = LazyLock::new(|| {
     path
 });
 
-#[test]
-fn analytics_events() {
-    test("analytics-events")
+#[tokio::test(flavor = "multi_thread")]
+async fn test_all() {
+    let test_files = fs::read_dir(&*TEST_DATA)
+        .expect("Failed to read test-data directory")
+        .filter_map(|entry| {
+            let path = entry.ok()?.path();
+            (path.extension()? == "json").then_some(path)
+        })
+        .collect::<Vec<_>>();
+
+    futures::future::join_all(test_files.iter().map(run_test)).await;
 }
 
-#[test]
-fn config_file() {
-    test("config-file")
-}
+async fn run_test(input: &PathBuf) {
+    let name = input
+        .file_stem()
+        .expect("Missing file stem")
+        .to_str()
+        .expect("Invalid UTF-8 in filename");
 
-#[test]
-fn ecommerce_api_response() {
-    test("ecommerce-api-response")
-}
+    let output = env::temp_dir()
+        .join("java")
+        .join(input.file_name().expect("Missing file name"));
+    let harness = env::temp_dir().join(name);
 
-#[test]
-fn linked_list() {
-    test("linked-list")
-}
-
-#[test]
-fn tree() {
-    test("tree")
-}
-
-#[track_caller]
-fn test(test_name: &str) {
-    // check if docker exists
-    Command::new("docker")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .expect("Failed to spawn Docker command");
-
-    let test_input = TEST_DATA.join(format!("{}.json", test_name));
-    let test_output = TEST_RESULTS.join(format!("{}.json", test_name));
-    fs::File::create(&test_output).expect("Failed to create test output file");
-
-    let harness = temp_dir().join(test_name);
+    fs::create_dir_all(output.parent().expect("Missing parent directory"))
+        .expect("Failed to create output directory");
+    fs::File::create(&output).expect("Failed to create output file");
     fs::create_dir_all(&harness).expect("Failed to create harness directory");
-    copy_dir_all(&*TEMPLATE, &harness).expect("Failed to copy test harness");
+    copy_dir_all(&*TEMPLATE, &harness).expect("Failed to copy template");
 
     codegen(
-        serde_json::from_reader(
-            fs::File::open(&test_input).expect("Failed to open test input file"),
-        )
-        .expect("Failed to deserialize test input file"),
+        serde_json::from_reader(fs::File::open(input).expect("Failed to open input file"))
+            .expect("Failed to parse input JSON"),
         &mut fs::File::create(harness.join("src").join("JsonCodeGen.java"))
-            .expect("Failed to create JsonCodeGen.java file"),
+            .expect("Failed to create JsonCodeGen.java"),
     )
-    .expect("Failed to write to JsonCodeGen.java");
+    .expect("Failed to run codegen");
 
     #[rustfmt::skip]
-    let status = Command::new("docker")
+    let cmd_output = Command::new("docker")
         .args([
             "run", "--rm",
             "-v", &format!("{}:/workspace", harness.display()),
             "-v", &format!("{}:/root/.m2", M2.display()),
-            "-v", &format!("{}:/data/input.json:ro", test_input.display()),
-            "-v", &format!("{}:/data/output.json", test_output.display()),
+            "-v", &format!("{}:/data/input.json:ro", input.display()),
+            "-v", &format!("{}:/data/output.json", output.display()),
             "-w", "/workspace",
             "docker.io/library/maven:3.9.9-eclipse-temurin-17",
             "bash", "-lc",
@@ -104,22 +84,30 @@ fn test(test_name: &str) {
                 mvn dependency:copy-dependencies -DoutputDirectory=target/lib -DincludeScope=runtime;\
                 java -jar target/jsoncodegen.jar < /data/input.json > /data/output.json;",
         ])
-        .status()
+        .output()
+        .await
         .expect("Failed to run Docker container");
 
-    assert!(status.success(), "Docker container failed");
+    let generated_code = fs::read_to_string(harness.join("src").join("JsonCodeGen.java"))
+        .unwrap_or_else(|_| "<failed to read>".to_string());
+    let input_content =
+        fs::read_to_string(input).unwrap_or_else(|_| "<failed to read>".to_string());
 
-    let output_json = serde_json::from_reader::<_, serde_json::Value>(
-        fs::File::open(&test_output).expect("Failed to open output JSON file"),
-    )
-    .expect("Failed to parse output JSON");
+    assert!(
+        cmd_output.status.success(),
+        "Docker failed for: {name}\n\n--- input.json ---\n{input_content}\n\n--- JsonCodeGen.java ---\n{generated_code}\n\n--- stdout ---\n{}\n--- stderr ---\n{}",
+        String::from_utf8_lossy(&cmd_output.stdout),
+        String::from_utf8_lossy(&cmd_output.stderr)
+    );
 
-    let expected_json = serde_json::from_reader::<_, serde_json::Value>(
-        fs::File::open(test_input).expect("Failed to open input JSON file"),
-    )
-    .expect("Failed to parse input JSON");
+    let output_json: serde_json::Value =
+        serde_json::from_reader(fs::File::open(&output).expect("Failed to open output file"))
+            .expect("Failed to parse output JSON");
+    let expected_json: serde_json::Value =
+        serde_json::from_reader(fs::File::open(input).expect("Failed to open input file"))
+            .expect("Failed to parse expected JSON");
 
-    assert_eq!(output_json, expected_json);
+    assert_eq!(output_json, expected_json, "Mismatch for: {name}");
 }
 
 fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {

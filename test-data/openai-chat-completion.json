@@ -1,0 +1,36 @@
+{
+    "id": "chatcmpl-abc123xyz789",
+    "object": "chat.completion",
+    "created": 1735055600,
+    "model": "gpt-4o-2025-12-01",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": "Here's a simple example of a REST API in Python using Flask:\n\n```python\nfrom flask import Flask, jsonify\n\napp = Flask(__name__)\n\n@app.route('/api/hello')\ndef hello():\n    return jsonify({'message': 'Hello, World!'})\n\nif __name__ == '__main__':\n    app.run()\n```",
+                "refusal": null,
+                "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "stop"
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 57,
+        "completion_tokens": 89,
+        "total_tokens": 146,
+        "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "audio_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+        }
+    },
+    "service_tier": "default",
+    "system_fingerprint": "fp_abc123def456"
+}

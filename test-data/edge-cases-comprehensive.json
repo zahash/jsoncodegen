@@ -1,0 +1,129 @@
+{
+    "string_formats": {
+        "uuid": "550e8400-e29b-41d4-a716-446655440000",
+        "email": "user@example.com",
+        "uri": "https://example.com/path?query=value#fragment",
+        "ipv4": "192.168.1.100",
+        "ipv6": "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+        "mac_address": "00:1A:2B:3C:4D:5E",
+        "iso_date": "2025-12-22",
+        "iso_time": "14:30:00.000Z",
+        "iso_datetime": "2025-12-22T14:30:00.000Z",
+        "duration": "P3Y6M4DT12H30M5S",
+        "semver": "3.2.1-beta.1+build.123",
+        "phone_e164": "+14155551234",
+        "credit_card": "4111111111111111",
+        "hex_color": "#FF5733",
+        "rgb_color": "rgb(255, 87, 51)",
+        "base64": "SGVsbG8gV29ybGQh",
+        "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+        "cron": "0 0 * * MON-FRI",
+        "regex": "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+        "slug": "this-is-a-url-slug",
+        "locale": "en-US",
+        "currency_code": "USD",
+        "country_code_alpha2": "US",
+        "country_code_alpha3": "USA",
+        "language_code": "en",
+        "timezone": "America/Los_Angeles",
+        "mime_type": "application/json"
+    },
+    "numeric_edge_cases": {
+        "zero": 0,
+        "negative_zero": -0,
+        "positive_int": 2147483647,
+        "negative_int": -2147483648,
+        "large_int": 9007199254740991,
+        "small_float": 0.0000001,
+        "large_float": 1.7976931348623157e308,
+        "negative_float": -3.14159265359,
+        "scientific_notation": 6.022e23,
+        "negative_scientific": -1.6e-19
+    },
+    "string_edge_cases": {
+        "empty": "",
+        "whitespace_only": "   \t\n  ",
+        "unicode": "Hello 世界 🌍 مرحبا",
+        "emoji_only": "🎉🚀💻🔥",
+        "rtl_text": "مرحبا بالعالم",
+        "mixed_direction": "Hello مرحبا World",
+        "special_chars": "Line1\nLine2\tTabbed\r\nWindows",
+        "escaped_quotes": "He said \"Hello\" and 'Goodbye'",
+        "backslashes": "C:\\Users\\Name\\Documents",
+        "null_char": "before\u0000after",
+        "very_long": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+    },
+    "array_edge_cases": {
+        "empty_array": [],
+        "single_element": [
+            42
+        ],
+        "homogeneous": [
+            1,
+            2,
+            3,
+            4,
+            5
+        ],
+        "heterogeneous": [
+            1,
+            "two",
+            3.0,
+            true,
+            null,
+            {
+                "nested": "object"
+            },
+            [
+                1,
+                2,
+                3
+            ]
+        ],
+        "deeply_nested": [
+            [
+                [
+                    [
+                        [
+                            [
+                                1
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ],
+        "sparse_nulls": [
+            1,
+            null,
+            3,
+            null,
+            null,
+            6
+        ]
+    },
+    "object_edge_cases": {
+        "empty_object": {},
+        "numeric_keys": {
+            "123": "numeric key",
+            "456": "another"
+        },
+        "special_keys": {
+            "": "empty key",
+            " ": "space key",
+            "a.b": "dot in key",
+            "a-b": "hyphen in key",
+            "a:b": "colon in key",
+            "$ref": "dollar sign key",
+            "@type": "at sign key"
+        },
+        "reserved_words": {
+            "class": "class value",
+            "function": "function value",
+            "return": "return value",
+            "null": "null as key",
+            "true": "true as key",
+            "false": "false as key"
+        }
+    }
+}

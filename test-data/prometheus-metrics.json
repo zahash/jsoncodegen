@@ -1,0 +1,214 @@
+{
+    "metrics": [
+        {
+            "name": "http_requests_total",
+            "type": "counter",
+            "help": "Total number of HTTP requests",
+            "labels": [
+                "method",
+                "path",
+                "status"
+            ],
+            "samples": [
+                {
+                    "labels": {
+                        "method": "GET",
+                        "path": "/api/users",
+                        "status": "200"
+                    },
+                    "value": 15234,
+                    "timestamp": 1735055600000
+                },
+                {
+                    "labels": {
+                        "method": "GET",
+                        "path": "/api/users",
+                        "status": "404"
+                    },
+                    "value": 42,
+                    "timestamp": 1735055600000
+                },
+                {
+                    "labels": {
+                        "method": "POST",
+                        "path": "/api/users",
+                        "status": "201"
+                    },
+                    "value": 1823,
+                    "timestamp": 1735055600000
+                },
+                {
+                    "labels": {
+                        "method": "POST",
+                        "path": "/api/users",
+                        "status": "400"
+                    },
+                    "value": 156,
+                    "timestamp": 1735055600000
+                }
+            ]
+        },
+        {
+            "name": "http_request_duration_seconds",
+            "type": "histogram",
+            "help": "HTTP request latency in seconds",
+            "labels": [
+                "method",
+                "path"
+            ],
+            "buckets": [
+                0.005,
+                0.01,
+                0.025,
+                0.05,
+                0.1,
+                0.25,
+                0.5,
+                1,
+                2.5,
+                5,
+                10
+            ],
+            "samples": [
+                {
+                    "labels": {
+                        "method": "GET",
+                        "path": "/api/users"
+                    },
+                    "bucketCounts": [
+                        1523,
+                        4521,
+                        8234,
+                        12456,
+                        14823,
+                        15012,
+                        15156,
+                        15210,
+                        15228,
+                        15232,
+                        15234
+                    ],
+                    "sum": 2345.67,
+                    "count": 15234,
+                    "timestamp": 1735055600000
+                }
+            ]
+        },
+        {
+            "name": "process_cpu_seconds_total",
+            "type": "counter",
+            "help": "Total user and system CPU time spent in seconds",
+            "labels": [],
+            "samples": [
+                {
+                    "labels": {},
+                    "value": 45678.23,
+                    "timestamp": 1735055600000
+                }
+            ]
+        },
+        {
+            "name": "process_resident_memory_bytes",
+            "type": "gauge",
+            "help": "Resident memory size in bytes",
+            "labels": [],
+            "samples": [
+                {
+                    "labels": {},
+                    "value": 524288000,
+                    "timestamp": 1735055600000
+                }
+            ]
+        },
+        {
+            "name": "go_goroutines",
+            "type": "gauge",
+            "help": "Number of goroutines that currently exist",
+            "labels": [],
+            "samples": [
+                {
+                    "labels": {},
+                    "value": 142,
+                    "timestamp": 1735055600000
+                }
+            ]
+        },
+        {
+            "name": "db_connections",
+            "type": "gauge",
+            "help": "Number of database connections",
+            "labels": [
+                "pool",
+                "state"
+            ],
+            "samples": [
+                {
+                    "labels": {
+                        "pool": "primary",
+                        "state": "active"
+                    },
+                    "value": 8,
+                    "timestamp": 1735055600000
+                },
+                {
+                    "labels": {
+                        "pool": "primary",
+                        "state": "idle"
+                    },
+                    "value": 12,
+                    "timestamp": 1735055600000
+                },
+                {
+                    "labels": {
+                        "pool": "replica",
+                        "state": "active"
+                    },
+                    "value": 5,
+                    "timestamp": 1735055600000
+                },
+                {
+                    "labels": {
+                        "pool": "replica",
+                        "state": "idle"
+                    },
+                    "value": 15,
+                    "timestamp": 1735055600000
+                }
+            ]
+        },
+        {
+            "name": "request_size_bytes",
+            "type": "summary",
+            "help": "Request size in bytes",
+            "labels": [
+                "method"
+            ],
+            "quantiles": [
+                0.5,
+                0.9,
+                0.99
+            ],
+            "samples": [
+                {
+                    "labels": {
+                        "method": "POST"
+                    },
+                    "quantileValues": {
+                        "0.5": 1024,
+                        "0.9": 4096,
+                        "0.99": 16384
+                    },
+                    "sum": 45678912,
+                    "count": 28345,
+                    "timestamp": 1735055600000
+                }
+            ]
+        }
+    ],
+    "metadata": {
+        "job": "api-server",
+        "instance": "api-server-1:9090",
+        "scrapeTimestamp": 1735055600000,
+        "scrapeDuration": 0.0234
+    }
+}

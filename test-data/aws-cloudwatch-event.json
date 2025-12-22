@@ -1,0 +1,66 @@
+{
+    "version": "0",
+    "id": "12345678-1234-1234-1234-123456789012",
+    "detail-type": "EC2 Instance State-change Notification",
+    "source": "aws.ec2",
+    "account": "123456789012",
+    "time": "2025-12-22T10:30:00Z",
+    "region": "us-west-2",
+    "resources": [
+        "arn:aws:ec2:us-west-2:123456789012:instance/i-0abc123def456789"
+    ],
+    "detail": {
+        "instance-id": "i-0abc123def456789",
+        "state": "running",
+        "previous-state": "pending",
+        "instance-type": "m6i.xlarge",
+        "availability-zone": "us-west-2a",
+        "subnet-id": "subnet-0abc123def456789",
+        "vpc-id": "vpc-0abc123def456789",
+        "ami-id": "ami-0abc123def456789",
+        "private-ip": "10.0.1.100",
+        "public-ip": "52.10.20.30",
+        "tags": {
+            "Name": "web-server-prod-01",
+            "Environment": "production",
+            "Team": "platform",
+            "CostCenter": "CC-1234"
+        },
+        "launch-time": "2025-12-22T10:29:45Z",
+        "monitoring": {
+            "state": "enabled"
+        },
+        "security-groups": [
+            {
+                "group-id": "sg-0abc123def456789",
+                "group-name": "web-server-sg"
+            },
+            {
+                "group-id": "sg-0def456789abc123",
+                "group-name": "ssh-access-sg"
+            }
+        ],
+        "block-device-mappings": [
+            {
+                "device-name": "/dev/xvda",
+                "ebs": {
+                    "volume-id": "vol-0abc123def456789",
+                    "status": "attached",
+                    "attach-time": "2025-12-22T10:29:50Z",
+                    "delete-on-termination": true,
+                    "volume-size": 100,
+                    "volume-type": "gp3",
+                    "encrypted": true
+                }
+            }
+        ],
+        "network-interfaces": [
+            {
+                "network-interface-id": "eni-0abc123def456789",
+                "mac-address": "0a:1b:2c:3d:4e:5f",
+                "private-ip": "10.0.1.100",
+                "private-dns-name": "ip-10-0-1-100.us-west-2.compute.internal"
+            }
+        ]
+    }
+}

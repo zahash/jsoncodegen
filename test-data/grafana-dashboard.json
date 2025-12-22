@@ -1,0 +1,242 @@
+{
+    "dashboard": {
+        "id": "d-abc123",
+        "title": "Production Overview",
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+            "from": "now-6h",
+            "to": "now"
+        },
+        "panels": [
+            {
+                "id": 1,
+                "type": "stat",
+                "title": "Active Users",
+                "gridPos": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 6,
+                    "h": 4
+                },
+                "targets": [
+                    {
+                        "refId": "A",
+                        "expr": "sum(active_users)",
+                        "legendFormat": "Users"
+                    }
+                ],
+                "options": {
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "auto",
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": "",
+                        "values": false
+                    }
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "short",
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 1000
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 5000
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "id": 2,
+                "type": "timeseries",
+                "title": "Request Rate",
+                "gridPos": {
+                    "x": 6,
+                    "y": 0,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "refId": "A",
+                        "expr": "rate(http_requests_total[5m])",
+                        "legendFormat": "{{method}} {{status}}"
+                    }
+                ],
+                "options": {
+                    "legend": {
+                        "displayMode": "table",
+                        "placement": "bottom",
+                        "calcs": [
+                            "mean",
+                            "max",
+                            "last"
+                        ]
+                    },
+                    "tooltip": {
+                        "mode": "multi",
+                        "sort": "desc"
+                    }
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "reqps",
+                        "custom": {
+                            "drawStyle": "line",
+                            "lineInterpolation": "smooth",
+                            "fillOpacity": 10,
+                            "showPoints": "never"
+                        }
+                    },
+                    "overrides": [
+                        {
+                            "matcher": {
+                                "id": "byRegexp",
+                                "options": ".*500.*"
+                            },
+                            "properties": [
+                                {
+                                    "id": "color",
+                                    "value": {
+                                        "fixedColor": "red",
+                                        "mode": "fixed"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            {
+                "id": 3,
+                "type": "table",
+                "title": "Top Endpoints",
+                "gridPos": {
+                    "x": 0,
+                    "y": 8,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "refId": "A",
+                        "expr": "topk(10, sum by (path) (rate(http_requests_total[5m])))",
+                        "format": "table",
+                        "instant": true
+                    }
+                ],
+                "options": {
+                    "sortBy": [
+                        {
+                            "displayName": "Value",
+                            "desc": true
+                        }
+                    ]
+                },
+                "transformations": [
+                    {
+                        "id": "organize",
+                        "options": {
+                            "excludeByName": {
+                                "Time": true
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "id": 4,
+                "type": "logs",
+                "title": "Error Logs",
+                "gridPos": {
+                    "x": 12,
+                    "y": 8,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "refId": "A",
+                        "expr": "{job=\"api-server\"} |= \"error\" | json",
+                        "datasource": {
+                            "type": "loki",
+                            "uid": "loki-main"
+                        }
+                    }
+                ],
+                "options": {
+                    "showTime": true,
+                    "showLabels": false,
+                    "wrapLogMessage": true,
+                    "sortOrder": "Descending",
+                    "enableLogDetails": true
+                }
+            }
+        ],
+        "templating": {
+            "list": [
+                {
+                    "name": "environment",
+                    "type": "custom",
+                    "current": {
+                        "text": "production",
+                        "value": "production"
+                    },
+                    "options": [
+                        {
+                            "text": "production",
+                            "value": "production",
+                            "selected": true
+                        },
+                        {
+                            "text": "staging",
+                            "value": "staging",
+                            "selected": false
+                        }
+                    ]
+                },
+                {
+                    "name": "service",
+                    "type": "query",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "query": "label_values(up, service)",
+                    "refresh": 2,
+                    "multi": true,
+                    "includeAll": true
+                }
+            ]
+        },
+        "annotations": {
+            "list": [
+                {
+                    "name": "Deployments",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                    },
+                    "enable": true,
+                    "expr": "changes(deployment_timestamp[1m]) > 0",
+                    "iconColor": "blue"
+                }
+            ]
+        }
+    }
+}

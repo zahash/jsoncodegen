@@ -1,0 +1,189 @@
+{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "name": "web-app-pod",
+        "namespace": "production",
+        "labels": {
+            "app": "web-app",
+            "version": "v2.3.1",
+            "environment": "production"
+        },
+        "annotations": {
+            "prometheus.io/scrape": "true",
+            "prometheus.io/port": "9090"
+        },
+        "uid": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "creationTimestamp": "2025-12-22T08:00:00Z"
+    },
+    "spec": {
+        "containers": [
+            {
+                "name": "web-app",
+                "image": "registry.acme.com/web-app:v2.3.1",
+                "imagePullPolicy": "IfNotPresent",
+                "ports": [
+                    {
+                        "containerPort": 8080,
+                        "protocol": "TCP",
+                        "name": "http"
+                    },
+                    {
+                        "containerPort": 9090,
+                        "protocol": "TCP",
+                        "name": "metrics"
+                    }
+                ],
+                "env": [
+                    {
+                        "name": "DATABASE_URL",
+                        "valueFrom": {
+                            "secretKeyRef": {
+                                "name": "db-secret",
+                                "key": "url"
+                            }
+                        }
+                    },
+                    {
+                        "name": "LOG_LEVEL",
+                        "value": "info"
+                    },
+                    {
+                        "name": "CACHE_TTL",
+                        "value": "3600"
+                    }
+                ],
+                "resources": {
+                    "limits": {
+                        "cpu": "500m",
+                        "memory": "512Mi"
+                    },
+                    "requests": {
+                        "cpu": "250m",
+                        "memory": "256Mi"
+                    }
+                },
+                "livenessProbe": {
+                    "httpGet": {
+                        "path": "/healthz",
+                        "port": 8080
+                    },
+                    "initialDelaySeconds": 30,
+                    "periodSeconds": 10,
+                    "timeoutSeconds": 5,
+                    "failureThreshold": 3
+                },
+                "readinessProbe": {
+                    "httpGet": {
+                        "path": "/ready",
+                        "port": 8080
+                    },
+                    "initialDelaySeconds": 5,
+                    "periodSeconds": 5
+                },
+                "volumeMounts": [
+                    {
+                        "name": "config-volume",
+                        "mountPath": "/etc/config",
+                        "readOnly": true
+                    },
+                    {
+                        "name": "data-volume",
+                        "mountPath": "/var/data"
+                    }
+                ]
+            },
+            {
+                "name": "sidecar-proxy",
+                "image": "envoyproxy/envoy:v1.28.0",
+                "ports": [
+                    {
+                        "containerPort": 15000,
+                        "protocol": "TCP"
+                    }
+                ],
+                "resources": {
+                    "limits": {
+                        "cpu": "100m",
+                        "memory": "128Mi"
+                    },
+                    "requests": {
+                        "cpu": "50m",
+                        "memory": "64Mi"
+                    }
+                }
+            }
+        ],
+        "volumes": [
+            {
+                "name": "config-volume",
+                "configMap": {
+                    "name": "web-app-config"
+                }
+            },
+            {
+                "name": "data-volume",
+                "persistentVolumeClaim": {
+                    "claimName": "web-app-data-pvc"
+                }
+            }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "serviceAccountName": "web-app-sa",
+        "nodeSelector": {
+            "node-type": "compute"
+        },
+        "tolerations": [
+            {
+                "key": "dedicated",
+                "operator": "Equal",
+                "value": "web-apps",
+                "effect": "NoSchedule"
+            }
+        ]
+    },
+    "status": {
+        "phase": "Running",
+        "conditions": [
+            {
+                "type": "Initialized",
+                "status": "True",
+                "lastTransitionTime": "2025-12-22T08:00:05Z"
+            },
+            {
+                "type": "Ready",
+                "status": "True",
+                "lastTransitionTime": "2025-12-22T08:00:35Z"
+            },
+            {
+                "type": "ContainersReady",
+                "status": "True",
+                "lastTransitionTime": "2025-12-22T08:00:35Z"
+            },
+            {
+                "type": "PodScheduled",
+                "status": "True",
+                "lastTransitionTime": "2025-12-22T08:00:00Z"
+            }
+        ],
+        "hostIP": "10.0.1.5",
+        "podIP": "10.244.1.15",
+        "startTime": "2025-12-22T08:00:00Z",
+        "containerStatuses": [
+            {
+                "name": "web-app",
+                "ready": true,
+                "restartCount": 0,
+                "state": {
+                    "running": {
+                        "startedAt": "2025-12-22T08:00:10Z"
+                    }
+                },
+                "lastState": {},
+                "imageID": "registry.acme.com/web-app@sha256:abc123def456",
+                "containerID": "containerd://abc123def456789"
+            }
+        ]
+    }
+}

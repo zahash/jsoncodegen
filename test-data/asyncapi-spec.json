@@ -1,0 +1,202 @@
+{
+    "asyncapi": "3.0.0",
+    "info": {
+        "title": "Order Processing Events",
+        "version": "1.0.0",
+        "description": "Async API for order processing events in the e-commerce platform"
+    },
+    "servers": {
+        "production": {
+            "host": "kafka.example.com:9092",
+            "protocol": "kafka",
+            "description": "Production Kafka cluster"
+        },
+        "staging": {
+            "host": "kafka-staging.example.com:9092",
+            "protocol": "kafka",
+            "description": "Staging Kafka cluster"
+        }
+    },
+    "channels": {
+        "orders.created": {
+            "address": "orders.created",
+            "messages": {
+                "OrderCreated": {
+                    "$ref": "#/components/messages/OrderCreated"
+                }
+            }
+        },
+        "orders.shipped": {
+            "address": "orders.shipped",
+            "messages": {
+                "OrderShipped": {
+                    "$ref": "#/components/messages/OrderShipped"
+                }
+            }
+        },
+        "orders.delivered": {
+            "address": "orders.delivered",
+            "messages": {
+                "OrderDelivered": {
+                    "$ref": "#/components/messages/OrderDelivered"
+                }
+            }
+        }
+    },
+    "operations": {
+        "onOrderCreated": {
+            "action": "receive",
+            "channel": {
+                "$ref": "#/channels/orders.created"
+            },
+            "summary": "Receive order created events",
+            "messages": [
+                {
+                    "$ref": "#/channels/orders.created/messages/OrderCreated"
+                }
+            ]
+        },
+        "publishOrderShipped": {
+            "action": "send",
+            "channel": {
+                "$ref": "#/channels/orders.shipped"
+            },
+            "summary": "Publish order shipped events"
+        }
+    },
+    "components": {
+        "messages": {
+            "OrderCreated": {
+                "name": "OrderCreated",
+                "title": "Order Created Event",
+                "contentType": "application/json",
+                "payload": {
+                    "$ref": "#/components/schemas/OrderCreatedPayload"
+                },
+                "headers": {
+                    "$ref": "#/components/schemas/EventHeaders"
+                }
+            },
+            "OrderShipped": {
+                "name": "OrderShipped",
+                "title": "Order Shipped Event",
+                "contentType": "application/json",
+                "payload": {
+                    "$ref": "#/components/schemas/OrderShippedPayload"
+                }
+            },
+            "OrderDelivered": {
+                "name": "OrderDelivered",
+                "title": "Order Delivered Event",
+                "contentType": "application/json",
+                "payload": {
+                    "$ref": "#/components/schemas/OrderDeliveredPayload"
+                }
+            }
+        },
+        "schemas": {
+            "EventHeaders": {
+                "type": "object",
+                "properties": {
+                    "correlationId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "source": {
+                        "type": "string"
+                    }
+                }
+            },
+            "OrderCreatedPayload": {
+                "type": "object",
+                "required": ["orderId", "customerId", "items", "totalAmount"],
+                "properties": {
+                    "orderId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "customerId": {
+                        "type": "string"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderItem"
+                        }
+                    },
+                    "totalAmount": {
+                        "type": "number"
+                    },
+                    "currency": {
+                        "type": "string",
+                        "default": "USD"
+                    },
+                    "shippingAddress": {
+                        "$ref": "#/components/schemas/Address"
+                    }
+                }
+            },
+            "OrderShippedPayload": {
+                "type": "object",
+                "properties": {
+                    "orderId": {
+                        "type": "string"
+                    },
+                    "carrier": {
+                        "type": "string"
+                    },
+                    "trackingNumber": {
+                        "type": "string"
+                    },
+                    "estimatedDelivery": {
+                        "type": "string",
+                        "format": "date"
+                    }
+                }
+            },
+            "OrderDeliveredPayload": {
+                "type": "object",
+                "properties": {
+                    "orderId": {
+                        "type": "string"
+                    },
+                    "deliveredAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "signedBy": {
+                        "type": "string"
+                    }
+                }
+            },
+            "OrderItem": {
+                "type": "object",
+                "properties": {
+                    "sku": {
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "type": "integer"
+                    },
+                    "price": {
+                        "type": "number"
+                    }
+                }
+            },
+            "Address": {
+                "type": "object",
+                "properties": {
+                    "street": { "type": "string" },
+                    "city": { "type": "string" },
+                    "state": { "type": "string" },
+                    "zipCode": { "type": "string" },
+                    "country": { "type": "string" }
+                }
+            }
+        }
+    }
+}

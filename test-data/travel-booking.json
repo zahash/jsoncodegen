@@ -1,0 +1,283 @@
+{
+    "booking_id": "BK-2025-12-22-ABC123",
+    "status": "confirmed",
+    "created_at": "2025-12-15T14:30:00Z",
+    "modified_at": "2025-12-18T09:15:00Z",
+    "traveler": {
+        "profile_id": "TP-987654",
+        "title": "Mr",
+        "first_name": "John",
+        "last_name": "Smith",
+        "date_of_birth": "1985-07-15",
+        "nationality": "US",
+        "passport": {
+            "number": "123456789",
+            "country": "US",
+            "expiry_date": "2030-05-20",
+            "issuing_country": "US"
+        },
+        "contact": {
+            "email": "john.smith@example.com",
+            "phone": "+14155551234",
+            "emergency_contact": {
+                "name": "Jane Smith",
+                "phone": "+14155555678",
+                "relationship": "spouse"
+            }
+        },
+        "loyalty_programs": [
+            {
+                "program": "SkyMiles",
+                "number": "1234567890",
+                "tier": "gold"
+            },
+            {
+                "program": "Marriott Bonvoy",
+                "number": "9876543210",
+                "tier": "platinum"
+            }
+        ],
+        "preferences": {
+            "seat": "aisle",
+            "meal": "vegetarian",
+            "special_assistance": null
+        }
+    },
+    "itinerary": {
+        "trip_type": "round_trip",
+        "flights": [
+            {
+                "segment_id": "SEG-001",
+                "direction": "outbound",
+                "carrier": {
+                    "code": "UA",
+                    "name": "United Airlines",
+                    "logo_url": "https://example.com/logos/ua.png"
+                },
+                "flight_number": "UA123",
+                "aircraft": {
+                    "code": "777",
+                    "name": "Boeing 777-300ER"
+                },
+                "departure": {
+                    "airport": {
+                        "code": "SFO",
+                        "name": "San Francisco International Airport",
+                        "city": "San Francisco",
+                        "country": "US",
+                        "timezone": "America/Los_Angeles"
+                    },
+                    "terminal": "3",
+                    "gate": "G92",
+                    "scheduled": "2025-12-22T08:30:00-08:00",
+                    "estimated": "2025-12-22T08:35:00-08:00"
+                },
+                "arrival": {
+                    "airport": {
+                        "code": "LHR",
+                        "name": "London Heathrow Airport",
+                        "city": "London",
+                        "country": "GB",
+                        "timezone": "Europe/London"
+                    },
+                    "terminal": "2",
+                    "gate": null,
+                    "scheduled": "2025-12-23T03:15:00+00:00",
+                    "estimated": null
+                },
+                "duration_minutes": 645,
+                "stops": 0,
+                "cabin_class": "business",
+                "seat": {
+                    "number": "4A",
+                    "type": "window",
+                    "features": [
+                        "extra_legroom",
+                        "power_outlet",
+                        "usb"
+                    ]
+                },
+                "baggage": {
+                    "carry_on": {
+                        "pieces": 2,
+                        "weight_kg": 12
+                    },
+                    "checked": {
+                        "pieces": 2,
+                        "weight_kg": 32
+                    }
+                },
+                "meals_included": true,
+                "wifi_available": true,
+                "entertainment": [
+                    "personal_screen",
+                    "streaming"
+                ]
+            },
+            {
+                "segment_id": "SEG-002",
+                "direction": "return",
+                "carrier": {
+                    "code": "UA",
+                    "name": "United Airlines",
+                    "logo_url": "https://example.com/logos/ua.png"
+                },
+                "flight_number": "UA456",
+                "aircraft": {
+                    "code": "787",
+                    "name": "Boeing 787-9 Dreamliner"
+                },
+                "departure": {
+                    "airport": {
+                        "code": "LHR",
+                        "name": "London Heathrow Airport",
+                        "city": "London",
+                        "country": "GB",
+                        "timezone": "Europe/London"
+                    },
+                    "terminal": "2",
+                    "gate": null,
+                    "scheduled": "2025-12-30T11:00:00+00:00",
+                    "estimated": null
+                },
+                "arrival": {
+                    "airport": {
+                        "code": "SFO",
+                        "name": "San Francisco International Airport",
+                        "city": "San Francisco",
+                        "country": "US",
+                        "timezone": "America/Los_Angeles"
+                    },
+                    "terminal": "G",
+                    "gate": null,
+                    "scheduled": "2025-12-30T14:30:00-08:00",
+                    "estimated": null
+                },
+                "duration_minutes": 690,
+                "stops": 0,
+                "cabin_class": "business",
+                "seat": null,
+                "baggage": {
+                    "carry_on": {
+                        "pieces": 2,
+                        "weight_kg": 12
+                    },
+                    "checked": {
+                        "pieces": 2,
+                        "weight_kg": 32
+                    }
+                },
+                "meals_included": true,
+                "wifi_available": true,
+                "entertainment": [
+                    "personal_screen",
+                    "streaming"
+                ]
+            }
+        ],
+        "hotels": [
+            {
+                "confirmation_number": "HTL-ABC123",
+                "property": {
+                    "id": "marriott-park-lane",
+                    "name": "London Marriott Hotel Park Lane",
+                    "chain": "Marriott",
+                    "star_rating": 5,
+                    "address": {
+                        "line1": "140 Park Lane",
+                        "city": "London",
+                        "postal_code": "W1K 7AA",
+                        "country": "GB"
+                    },
+                    "coordinates": {
+                        "latitude": 51.5074,
+                        "longitude": -0.1535
+                    },
+                    "phone": "+442074935000",
+                    "amenities": [
+                        "wifi",
+                        "gym",
+                        "spa",
+                        "restaurant",
+                        "bar",
+                        "concierge",
+                        "room_service"
+                    ]
+                },
+                "check_in": "2025-12-23T15:00:00+00:00",
+                "check_out": "2025-12-30T11:00:00+00:00",
+                "nights": 7,
+                "room": {
+                    "type": "executive_suite",
+                    "description": "Executive Suite with Park View",
+                    "bedding": "1 King",
+                    "max_occupancy": 2,
+                    "smoking": false,
+                    "view": "park"
+                },
+                "rate": {
+                    "per_night": 450.00,
+                    "total": 3150.00,
+                    "currency": "GBP",
+                    "includes_breakfast": true,
+                    "cancellation_policy": "free_until_24h_before"
+                },
+                "special_requests": [
+                    "high_floor",
+                    "late_checkout"
+                ]
+            }
+        ],
+        "car_rentals": []
+    },
+    "pricing": {
+        "currency": "USD",
+        "breakdown": {
+            "flights": {
+                "base_fare": 4500.00,
+                "taxes": 890.00,
+                "fees": 120.00,
+                "subtotal": 5510.00
+            },
+            "hotels": {
+                "room_rate": 4095.00,
+                "taxes": 614.25,
+                "resort_fee": 0,
+                "subtotal": 4709.25
+            },
+            "insurance": {
+                "provider": "Allianz",
+                "coverage": "comprehensive",
+                "premium": 189.00
+            }
+        },
+        "discounts": [
+            {
+                "code": "LOYALTY10",
+                "description": "Loyalty discount 10%",
+                "amount": -551.00
+            }
+        ],
+        "total": 9857.25,
+        "payment": {
+            "method": "credit_card",
+            "card_type": "visa",
+            "last_four": "4242",
+            "charged_at": "2025-12-15T14:32:00Z"
+        }
+    },
+    "documents": [
+        {
+            "type": "e_ticket",
+            "url": "https://example.com/docs/eticket-BK-2025-12-22-ABC123.pdf"
+        },
+        {
+            "type": "hotel_voucher",
+            "url": "https://example.com/docs/voucher-HTL-ABC123.pdf"
+        },
+        {
+            "type": "insurance_policy",
+            "url": "https://example.com/docs/insurance-BK-2025-12-22-ABC123.pdf"
+        }
+    ]
+}

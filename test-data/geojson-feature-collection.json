@@ -1,0 +1,183 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "id": "location-001",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -122.4194,
+                    37.7749
+                ]
+            },
+            "properties": {
+                "name": "San Francisco City Hall",
+                "address": "1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102",
+                "category": "government",
+                "rating": 4.6,
+                "reviewCount": 1523,
+                "hours": {
+                    "monday": "08:00-17:00",
+                    "tuesday": "08:00-17:00",
+                    "wednesday": "08:00-17:00",
+                    "thursday": "08:00-17:00",
+                    "friday": "08:00-17:00",
+                    "saturday": null,
+                    "sunday": null
+                },
+                "accessible": true,
+                "parking": true
+            }
+        },
+        {
+            "type": "Feature",
+            "id": "location-002",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -122.4647,
+                            37.7851
+                        ],
+                        [
+                            -122.4525,
+                            37.7851
+                        ],
+                        [
+                            -122.4525,
+                            37.7699
+                        ],
+                        [
+                            -122.4647,
+                            37.7699
+                        ],
+                        [
+                            -122.4647,
+                            37.7851
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "name": "Golden Gate Park",
+                "category": "park",
+                "area_sq_km": 4.1,
+                "established": 1870,
+                "features": [
+                    "trails",
+                    "gardens",
+                    "museums",
+                    "playground"
+                ],
+                "accessible": true,
+                "parking": true
+            }
+        },
+        {
+            "type": "Feature",
+            "id": "route-001",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        -122.4194,
+                        37.7749
+                    ],
+                    [
+                        -122.4177,
+                        37.7813
+                    ],
+                    [
+                        -122.4085,
+                        37.7879
+                    ],
+                    [
+                        -122.4061,
+                        37.8080
+                    ]
+                ]
+            },
+            "properties": {
+                "name": "Downtown to Fisherman's Wharf",
+                "mode": "walking",
+                "distance_km": 4.2,
+                "duration_minutes": 52,
+                "difficulty": "easy",
+                "scenic": true
+            }
+        },
+        {
+            "type": "Feature",
+            "id": "area-001",
+            "geometry": {
+                "type": "MultiPolygon",
+                "coordinates": [
+                    [
+                        [
+                            [
+                                -122.4200,
+                                37.7800
+                            ],
+                            [
+                                -122.4150,
+                                37.7800
+                            ],
+                            [
+                                -122.4150,
+                                37.7750
+                            ],
+                            [
+                                -122.4200,
+                                37.7750
+                            ],
+                            [
+                                -122.4200,
+                                37.7800
+                            ]
+                        ]
+                    ],
+                    [
+                        [
+                            [
+                                -122.4100,
+                                37.7850
+                            ],
+                            [
+                                -122.4050,
+                                37.7850
+                            ],
+                            [
+                                -122.4050,
+                                37.7800
+                            ],
+                            [
+                                -122.4100,
+                                37.7800
+                            ],
+                            [
+                                -122.4100,
+                                37.7850
+                            ]
+                        ]
+                    ]
+                ]
+            },
+            "properties": {
+                "name": "Historic Districts",
+                "districts": [
+                    "Financial District",
+                    "Civic Center"
+                ],
+                "protected": true
+            }
+        }
+    ],
+    "bbox": [
+        -122.4647,
+        37.7699,
+        -122.4050,
+        37.8080
+    ]
+}

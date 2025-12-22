@@ -1,0 +1,120 @@
+[
+    {
+        "id": "msg_abc123",
+        "type": "message",
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": "What's in this image?"
+            },
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/jpeg",
+                    "data": "/9j/4AAQSkZJRgABAQEASABIAAD..."
+                }
+            }
+        ],
+        "model": null,
+        "stop_reason": null,
+        "stop_sequence": null,
+        "usage": null
+    },
+    {
+        "id": "msg_def456",
+        "type": "message",
+        "role": "assistant",
+        "content": [
+            {
+                "type": "text",
+                "text": "This image shows a golden retriever playing in a park. The dog appears happy and is running through green grass."
+            }
+        ],
+        "model": "claude-opus-4-20250514",
+        "stop_reason": "end_turn",
+        "stop_sequence": null,
+        "usage": {
+            "input_tokens": 1523,
+            "output_tokens": 42
+        }
+    },
+    {
+        "id": "msg_ghi789",
+        "type": "message",
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": "Can you extract the text from this PDF and summarize it?"
+            },
+            {
+                "type": "document",
+                "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": "JVBERi0xLjQKJeLjz9MKMyAw..."
+                },
+                "cache_control": {
+                    "type": "ephemeral"
+                }
+            }
+        ]
+    },
+    {
+        "id": "msg_jkl012",
+        "type": "message",
+        "role": "assistant",
+        "content": [
+            {
+                "type": "thinking",
+                "thinking": "Let me analyze this document. It appears to be a research paper about machine learning..."
+            },
+            {
+                "type": "text",
+                "text": "This PDF is a research paper titled 'Advances in Neural Network Architectures'. Here's a summary:\n\n1. **Introduction**: The paper discusses recent developments in transformer architectures.\n2. **Methods**: A novel attention mechanism is proposed.\n3. **Results**: The new architecture shows 15% improvement on benchmark tasks.\n4. **Conclusion**: The findings suggest promising directions for future research."
+            },
+            {
+                "type": "tool_use",
+                "id": "tool_abc123",
+                "name": "save_summary",
+                "input": {
+                    "title": "Advances in Neural Network Architectures",
+                    "key_points": [
+                        "Novel attention mechanism",
+                        "15% benchmark improvement",
+                        "Future research directions"
+                    ],
+                    "category": "machine_learning"
+                }
+            }
+        ],
+        "model": "claude-opus-4-20250514",
+        "stop_reason": "tool_use",
+        "usage": {
+            "input_tokens": 8234,
+            "output_tokens": 456,
+            "cache_creation_input_tokens": 5000,
+            "cache_read_input_tokens": 0
+        }
+    },
+    {
+        "id": "msg_mno345",
+        "type": "message",
+        "role": "user",
+        "content": [
+            {
+                "type": "tool_result",
+                "tool_use_id": "tool_abc123",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Summary saved successfully with ID: sum_xyz789"
+                    }
+                ],
+                "is_error": false
+            }
+        ]
+    }
+]

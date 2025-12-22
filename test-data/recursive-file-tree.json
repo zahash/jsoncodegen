@@ -1,0 +1,60 @@
+[
+    {
+        "id": 1,
+        "name": "Root",
+        "parent_id": null,
+        "children_ids": [
+            2,
+            3
+        ],
+        "metadata": {
+            "type": "folder",
+            "icon": "📁"
+        }
+    },
+    {
+        "id": 2,
+        "name": "Documents",
+        "parent_id": 1,
+        "children_ids": [
+            4,
+            5
+        ],
+        "metadata": {
+            "type": "folder",
+            "icon": "📁"
+        }
+    },
+    {
+        "id": 3,
+        "name": "Images",
+        "parent_id": 1,
+        "children_ids": [],
+        "metadata": {
+            "type": "folder",
+            "icon": "📁"
+        }
+    },
+    {
+        "id": 4,
+        "name": "report.pdf",
+        "parent_id": 2,
+        "children_ids": null,
+        "metadata": {
+            "type": "file",
+            "size": 1048576,
+            "mime": "application/pdf"
+        }
+    },
+    {
+        "id": 5,
+        "name": "notes.txt",
+        "parent_id": 2,
+        "children_ids": null,
+        "metadata": {
+            "type": "file",
+            "size": 2048,
+            "mime": "text/plain"
+        }
+    }
+]

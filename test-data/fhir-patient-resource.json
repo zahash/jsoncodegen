@@ -1,0 +1,161 @@
+{
+    "resourceType": "Patient",
+    "id": "patient-12345",
+    "meta": {
+        "versionId": "3",
+        "lastUpdated": "2025-12-22T10:30:00.000Z",
+        "profile": [
+            "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+        ]
+    },
+    "identifier": [
+        {
+            "use": "official",
+            "type": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                        "code": "MR",
+                        "display": "Medical Record Number"
+                    }
+                ]
+            },
+            "system": "http://hospital.example.org/mrn",
+            "value": "MRN-123456789"
+        },
+        {
+            "use": "official",
+            "type": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                        "code": "SS",
+                        "display": "Social Security Number"
+                    }
+                ]
+            },
+            "system": "http://hl7.org/fhir/sid/us-ssn",
+            "value": "999-99-9999"
+        }
+    ],
+    "active": true,
+    "name": [
+        {
+            "use": "official",
+            "family": "Smith",
+            "given": [
+                "John",
+                "Michael"
+            ],
+            "prefix": [
+                "Mr."
+            ],
+            "suffix": [
+                "Jr."
+            ]
+        },
+        {
+            "use": "nickname",
+            "given": [
+                "Johnny"
+            ]
+        }
+    ],
+    "telecom": [
+        {
+            "system": "phone",
+            "value": "+1-555-123-4567",
+            "use": "home"
+        },
+        {
+            "system": "phone",
+            "value": "+1-555-987-6543",
+            "use": "mobile"
+        },
+        {
+            "system": "email",
+            "value": "john.smith@example.com",
+            "use": "work"
+        }
+    ],
+    "gender": "male",
+    "birthDate": "1985-07-15",
+    "deceasedBoolean": false,
+    "address": [
+        {
+            "use": "home",
+            "type": "physical",
+            "line": [
+                "123 Main Street",
+                "Apt 4B"
+            ],
+            "city": "Boston",
+            "state": "MA",
+            "postalCode": "02101",
+            "country": "US",
+            "period": {
+                "start": "2020-01-01"
+            }
+        }
+    ],
+    "maritalStatus": {
+        "coding": [
+            {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-MaritalStatus",
+                "code": "M",
+                "display": "Married"
+            }
+        ]
+    },
+    "contact": [
+        {
+            "relationship": [
+                {
+                    "coding": [
+                        {
+                            "system": "http://terminology.hl7.org/CodeSystem/v2-0131",
+                            "code": "N",
+                            "display": "Next of Kin"
+                        }
+                    ]
+                }
+            ],
+            "name": {
+                "family": "Smith",
+                "given": [
+                    "Jane"
+                ]
+            },
+            "telecom": [
+                {
+                    "system": "phone",
+                    "value": "+1-555-222-3333"
+                }
+            ]
+        }
+    ],
+    "communication": [
+        {
+            "language": {
+                "coding": [
+                    {
+                        "system": "urn:ietf:bcp:47",
+                        "code": "en-US",
+                        "display": "English (United States)"
+                    }
+                ]
+            },
+            "preferred": true
+        }
+    ],
+    "generalPractitioner": [
+        {
+            "reference": "Practitioner/pract-456",
+            "display": "Dr. Sarah Wilson"
+        }
+    ],
+    "managingOrganization": {
+        "reference": "Organization/org-789",
+        "display": "Boston General Hospital"
+    }
+}

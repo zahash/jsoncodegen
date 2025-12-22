@@ -1,0 +1,103 @@
+{
+    "action": "synchronize",
+    "number": 42,
+    "pull_request": {
+        "id": 123456789,
+        "number": 42,
+        "state": "open",
+        "locked": false,
+        "title": "feat: Add dark mode support",
+        "body": "## Summary\nThis PR adds dark mode support to the application.\n\n## Changes\n- Added theme context provider\n- Updated all components to use theme variables\n- Added user preference persistence\n\n## Testing\n- [ ] Unit tests pass\n- [ ] E2E tests pass\n- [ ] Manual testing completed\n\nCloses #123",
+        "user": {
+            "login": "contributor",
+            "id": 987654,
+            "avatar_url": "https://avatars.githubusercontent.com/u/987654?v=4",
+            "type": "User"
+        },
+        "labels": [
+            {
+                "id": 1,
+                "name": "enhancement",
+                "color": "84b6eb",
+                "description": "New feature or request"
+            },
+            {
+                "id": 2,
+                "name": "frontend",
+                "color": "f9d0c4",
+                "description": "Frontend related"
+            }
+        ],
+        "assignees": [
+            {
+                "login": "reviewer1",
+                "id": 111111,
+                "type": "User"
+            },
+            {
+                "login": "reviewer2",
+                "id": 222222,
+                "type": "User"
+            }
+        ],
+        "requested_reviewers": [
+            {
+                "login": "senior-dev",
+                "id": 333333,
+                "type": "User"
+            }
+        ],
+        "requested_teams": [
+            {
+                "id": 1,
+                "name": "frontend-team",
+                "slug": "frontend-team"
+            }
+        ],
+        "milestone": {
+            "id": 1,
+            "number": 5,
+            "title": "v2.0 Release",
+            "description": "Major release with new features",
+            "due_on": "2026-01-15T00:00:00Z",
+            "state": "open"
+        },
+        "draft": false,
+        "head": {
+            "label": "contributor:feature/dark-mode",
+            "ref": "feature/dark-mode",
+            "sha": "abc123def456789"
+        },
+        "base": {
+            "label": "acme:main",
+            "ref": "main",
+            "sha": "xyz789abc123456"
+        },
+        "auto_merge": null,
+        "merged": false,
+        "mergeable": true,
+        "mergeable_state": "clean",
+        "rebaseable": true,
+        "merged_by": null,
+        "comments": 5,
+        "review_comments": 12,
+        "commits": 3,
+        "additions": 1547,
+        "deletions": 234,
+        "changed_files": 28,
+        "created_at": "2025-12-20T10:00:00Z",
+        "updated_at": "2025-12-22T09:30:00Z"
+    },
+    "repository": {
+        "id": 12345678,
+        "name": "web-app",
+        "full_name": "acme/web-app",
+        "private": true,
+        "default_branch": "main"
+    },
+    "sender": {
+        "login": "contributor",
+        "id": 987654,
+        "type": "User"
+    }
+}

@@ -1,0 +1,249 @@
+{
+    "migration_version": 20251222143000,
+    "migration_name": "add_user_preferences_and_audit_log",
+    "description": "Adds user preferences table and audit logging functionality",
+    "applied_at": null,
+    "checksum": "abc123def456789",
+    "operations": [
+        {
+            "type": "create_table",
+            "table": "user_preferences",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "nullable": false,
+                    "primary_key": true,
+                    "default": {
+                        "function": "gen_random_uuid()"
+                    }
+                },
+                {
+                    "name": "user_id",
+                    "type": "uuid",
+                    "nullable": false,
+                    "references": {
+                        "table": "users",
+                        "column": "id",
+                        "on_delete": "CASCADE",
+                        "on_update": "CASCADE"
+                    }
+                },
+                {
+                    "name": "theme",
+                    "type": "varchar(20)",
+                    "nullable": false,
+                    "default": {
+                        "value": "system"
+                    },
+                    "check": {
+                        "expression": "theme IN ('light', 'dark', 'system')"
+                    }
+                },
+                {
+                    "name": "language",
+                    "type": "varchar(10)",
+                    "nullable": false,
+                    "default": {
+                        "value": "en"
+                    }
+                },
+                {
+                    "name": "notifications_enabled",
+                    "type": "boolean",
+                    "nullable": false,
+                    "default": {
+                        "value": true
+                    }
+                },
+                {
+                    "name": "email_frequency",
+                    "type": "varchar(20)",
+                    "nullable": true,
+                    "check": {
+                        "expression": "email_frequency IN ('immediate', 'daily', 'weekly', 'never')"
+                    }
+                },
+                {
+                    "name": "custom_settings",
+                    "type": "jsonb",
+                    "nullable": true,
+                    "default": {
+                        "value": "{}"
+                    }
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamptz",
+                    "nullable": false,
+                    "default": {
+                        "function": "now()"
+                    }
+                },
+                {
+                    "name": "updated_at",
+                    "type": "timestamptz",
+                    "nullable": false,
+                    "default": {
+                        "function": "now()"
+                    }
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "idx_user_preferences_user_id",
+                    "columns": [
+                        "user_id"
+                    ],
+                    "unique": true
+                }
+            ],
+            "constraints": [
+                {
+                    "name": "uq_user_preferences_user",
+                    "type": "unique",
+                    "columns": [
+                        "user_id"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "create_table",
+            "table": "audit_log",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "bigserial",
+                    "nullable": false,
+                    "primary_key": true
+                },
+                {
+                    "name": "entity_type",
+                    "type": "varchar(100)",
+                    "nullable": false
+                },
+                {
+                    "name": "entity_id",
+                    "type": "uuid",
+                    "nullable": false
+                },
+                {
+                    "name": "action",
+                    "type": "varchar(50)",
+                    "nullable": false
+                },
+                {
+                    "name": "actor_id",
+                    "type": "uuid",
+                    "nullable": true,
+                    "references": {
+                        "table": "users",
+                        "column": "id",
+                        "on_delete": "SET NULL"
+                    }
+                },
+                {
+                    "name": "old_values",
+                    "type": "jsonb",
+                    "nullable": true
+                },
+                {
+                    "name": "new_values",
+                    "type": "jsonb",
+                    "nullable": true
+                },
+                {
+                    "name": "ip_address",
+                    "type": "inet",
+                    "nullable": true
+                },
+                {
+                    "name": "user_agent",
+                    "type": "text",
+                    "nullable": true
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamptz",
+                    "nullable": false,
+                    "default": {
+                        "function": "now()"
+                    }
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "idx_audit_log_entity",
+                    "columns": [
+                        "entity_type",
+                        "entity_id"
+                    ]
+                },
+                {
+                    "name": "idx_audit_log_actor",
+                    "columns": [
+                        "actor_id"
+                    ]
+                },
+                {
+                    "name": "idx_audit_log_created_at",
+                    "columns": [
+                        "created_at"
+                    ]
+                }
+            ],
+            "partitioning": {
+                "type": "range",
+                "column": "created_at",
+                "interval": "1 month"
+            }
+        },
+        {
+            "type": "add_column",
+            "table": "users",
+            "column": {
+                "name": "preferences_id",
+                "type": "uuid",
+                "nullable": true,
+                "references": {
+                    "table": "user_preferences",
+                    "column": "id",
+                    "on_delete": "SET NULL"
+                }
+            }
+        },
+        {
+            "type": "create_trigger",
+            "name": "trg_user_preferences_updated_at",
+            "table": "user_preferences",
+            "timing": "BEFORE",
+            "events": [
+                "UPDATE"
+            ],
+            "function": "update_updated_at_column()"
+        },
+        {
+            "type": "raw_sql",
+            "up": "CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$ LANGUAGE plpgsql;",
+            "down": "DROP FUNCTION IF EXISTS update_updated_at_column();"
+        }
+    ],
+    "rollback_operations": [
+        {
+            "type": "drop_column",
+            "table": "users",
+            "column": "preferences_id"
+        },
+        {
+            "type": "drop_table",
+            "table": "audit_log",
+            "cascade": true
+        },
+        {
+            "type": "drop_table",
+            "table": "user_preferences",
+            "cascade": true
+        }
+    ]
+}

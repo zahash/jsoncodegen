@@ -1,0 +1,55 @@
+{
+    "iss": "https://auth.example.com",
+    "sub": "user:12345",
+    "aud": [
+        "api.example.com",
+        "dashboard.example.com"
+    ],
+    "exp": 1735142000,
+    "nbf": 1735055600,
+    "iat": 1735055600,
+    "jti": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Alice Johnson",
+    "email": "alice@example.com",
+    "email_verified": true,
+    "picture": "https://cdn.example.com/avatars/alice.jpg",
+    "roles": [
+        "user",
+        "developer",
+        "team_lead"
+    ],
+    "permissions": {
+        "projects": [
+            "read",
+            "write",
+            "delete"
+        ],
+        "users": [
+            "read"
+        ],
+        "billing": [
+            "read",
+            "write"
+        ],
+        "admin": []
+    },
+    "org": {
+        "id": "org_abc123",
+        "name": "Acme Corp",
+        "plan": "enterprise",
+        "seat_count": 150
+    },
+    "mfa_enabled": true,
+    "auth_time": 1735055500,
+    "amr": [
+        "pwd",
+        "otp"
+    ],
+    "nonce": "n-0S6_WzA2Mj",
+    "acr": "urn:mace:incommon:iap:silver",
+    "custom_claims": {
+        "department": "Engineering",
+        "employee_id": "EMP-2024-00789",
+        "cost_center": "CC-1234"
+    }
+}

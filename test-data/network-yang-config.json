@@ -1,0 +1,195 @@
+{
+    "ietf-interfaces:interfaces": {
+        "interface": [
+            {
+                "name": "GigabitEthernet0/0",
+                "description": "WAN uplink to ISP",
+                "type": "iana-if-type:ethernetCsmacd",
+                "enabled": true,
+                "ietf-ip:ipv4": {
+                    "address": [
+                        {
+                            "ip": "203.0.113.1",
+                            "netmask": "255.255.255.0"
+                        }
+                    ],
+                    "mtu": 1500
+                },
+                "ietf-ip:ipv6": {
+                    "address": [
+                        {
+                            "ip": "2001:db8::1",
+                            "prefix-length": 64
+                        }
+                    ],
+                    "enabled": true
+                }
+            },
+            {
+                "name": "GigabitEthernet0/1",
+                "description": "LAN interface",
+                "type": "iana-if-type:ethernetCsmacd",
+                "enabled": true,
+                "ietf-ip:ipv4": {
+                    "address": [
+                        {
+                            "ip": "192.168.1.1",
+                            "netmask": "255.255.255.0"
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "Loopback0",
+                "description": "Management loopback",
+                "type": "iana-if-type:softwareLoopback",
+                "enabled": true,
+                "ietf-ip:ipv4": {
+                    "address": [
+                        {
+                            "ip": "10.255.255.1",
+                            "netmask": "255.255.255.255"
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "ietf-routing:routing": {
+        "control-plane-protocols": {
+            "control-plane-protocol": [
+                {
+                    "type": "ietf-ospf:ospfv2",
+                    "name": "ospf-1",
+                    "ietf-ospf:ospf": {
+                        "af": "ipv4",
+                        "router-id": "10.255.255.1",
+                        "areas": {
+                            "area": [
+                                {
+                                    "area-id": "0.0.0.0",
+                                    "area-type": "normal",
+                                    "interfaces": {
+                                        "interface": [
+                                            {
+                                                "name": "GigabitEthernet0/0",
+                                                "cost": 10,
+                                                "hello-interval": 10,
+                                                "dead-interval": 40,
+                                                "priority": 1,
+                                                "network-type": "broadcast"
+                                            },
+                                            {
+                                                "name": "GigabitEthernet0/1",
+                                                "cost": 1,
+                                                "passive": true
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "type": "ietf-bgp:bgp",
+                    "name": "bgp-65001",
+                    "ietf-bgp:bgp": {
+                        "global": {
+                            "as": 65001,
+                            "router-id": "10.255.255.1"
+                        },
+                        "neighbors": {
+                            "neighbor": [
+                                {
+                                    "neighbor-address": "203.0.113.2",
+                                    "peer-as": 65002,
+                                    "peer-type": "external",
+                                    "timers": {
+                                        "hold-time": 90,
+                                        "keepalive-interval": 30
+                                    },
+                                    "afi-safis": {
+                                        "afi-safi": [
+                                            {
+                                                "afi-safi-name": "ipv4-unicast",
+                                                "enabled": true
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        "ribs": {
+            "rib": [
+                {
+                    "name": "ipv4-main",
+                    "address-family": "ipv4",
+                    "default-rib": true
+                }
+            ]
+        }
+    },
+    "ietf-system:system": {
+        "hostname": "router-edge-01",
+        "location": "Datacenter A, Rack 5",
+        "contact": "noc@example.com",
+        "clock": {
+            "timezone-name": "America/Los_Angeles"
+        },
+        "ntp": {
+            "enabled": true,
+            "server": [
+                {
+                    "name": "ntp1.example.com",
+                    "udp": {
+                        "address": "10.0.0.100",
+                        "port": 123
+                    },
+                    "prefer": true
+                },
+                {
+                    "name": "ntp2.example.com",
+                    "udp": {
+                        "address": "10.0.0.101",
+                        "port": 123
+                    }
+                }
+            ]
+        },
+        "dns-resolver": {
+            "search": [
+                "example.com",
+                "internal.example.com"
+            ],
+            "server": [
+                {
+                    "name": "dns1",
+                    "udp-and-tcp": {
+                        "address": "10.0.0.53",
+                        "port": 53
+                    }
+                }
+            ]
+        },
+        "authentication": {
+            "user": [
+                {
+                    "name": "admin",
+                    "password": "$6$rounds=5000$saltsalt$hashedpassword",
+                    "ssh-key": [
+                        {
+                            "name": "admin-key-1",
+                            "algorithm": "ssh-rsa",
+                            "key-data": "AAAAB3NzaC1yc2EAAA..."
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

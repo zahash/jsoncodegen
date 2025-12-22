@@ -1,0 +1,78 @@
+{
+    "Records": [
+        {
+            "eventVersion": "2.1",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-west-2",
+            "eventTime": "2025-12-22T10:30:00.000Z",
+            "eventName": "ObjectCreated:Put",
+            "userIdentity": {
+                "principalId": "EXAMPLE123456789"
+            },
+            "requestParameters": {
+                "sourceIPAddress": "203.0.113.42"
+            },
+            "responseElements": {
+                "x-amz-request-id": "EXAMPLE123456789",
+                "x-amz-id-2": "EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH"
+            },
+            "s3": {
+                "s3SchemaVersion": "1.0",
+                "configurationId": "testConfigRule",
+                "bucket": {
+                    "name": "my-uploads-bucket",
+                    "ownerIdentity": {
+                        "principalId": "EXAMPLE123456789"
+                    },
+                    "arn": "arn:aws:s3:::my-uploads-bucket"
+                },
+                "object": {
+                    "key": "uploads/2025/12/22/image-abc123.jpg",
+                    "size": 1048576,
+                    "eTag": "d41d8cd98f00b204e9800998ecf8427e",
+                    "contentType": "image/jpeg",
+                    "versionId": "096fKKXTRTtl3on89fVO.nfljtsv6qko",
+                    "sequencer": "0A1B2C3D4E5F6G7890"
+                }
+            },
+            "glacierEventData": null
+        },
+        {
+            "eventVersion": "2.1",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-west-2",
+            "eventTime": "2025-12-22T10:31:00.000Z",
+            "eventName": "ObjectRemoved:Delete",
+            "userIdentity": {
+                "principalId": "EXAMPLE123456789"
+            },
+            "requestParameters": {
+                "sourceIPAddress": "203.0.113.42"
+            },
+            "responseElements": {
+                "x-amz-request-id": "EXAMPLE987654321",
+                "x-amz-id-2": "EXAMPLEabc/123defghijklambdaisawesome/opqrstuvwxyzABCDEFGH"
+            },
+            "s3": {
+                "s3SchemaVersion": "1.0",
+                "configurationId": "testConfigRule",
+                "bucket": {
+                    "name": "my-uploads-bucket",
+                    "ownerIdentity": {
+                        "principalId": "EXAMPLE123456789"
+                    },
+                    "arn": "arn:aws:s3:::my-uploads-bucket"
+                },
+                "object": {
+                    "key": "uploads/2025/12/21/old-file.txt",
+                    "size": null,
+                    "eTag": null,
+                    "contentType": null,
+                    "versionId": null,
+                    "sequencer": "0A1B2C3D4E5F6G7891"
+                }
+            },
+            "glacierEventData": null
+        }
+    ]
+}

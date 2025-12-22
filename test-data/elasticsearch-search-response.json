@@ -1,0 +1,153 @@
+{
+    "took": 42,
+    "timed_out": false,
+    "_shards": {
+        "total": 5,
+        "successful": 5,
+        "skipped": 0,
+        "failed": 0
+    },
+    "hits": {
+        "total": {
+            "value": 10000,
+            "relation": "gte"
+        },
+        "max_score": 15.234,
+        "hits": [
+            {
+                "_index": "products-2025-12",
+                "_id": "prod_abc123",
+                "_score": 15.234,
+                "_source": {
+                    "name": "Wireless Noise-Canceling Headphones",
+                    "description": "Premium wireless headphones with active noise cancellation",
+                    "sku": "WH-1000XM5-BLK",
+                    "price": 349.99,
+                    "currency": "USD",
+                    "category": [
+                        "electronics",
+                        "audio",
+                        "headphones"
+                    ],
+                    "brand": "SoundTech",
+                    "in_stock": true,
+                    "stock_count": 156,
+                    "rating": 4.8,
+                    "review_count": 2847,
+                    "created_at": "2024-03-15T10:00:00Z",
+                    "updated_at": "2025-12-21T14:30:00Z",
+                    "attributes": {
+                        "color": "black",
+                        "connectivity": "bluetooth",
+                        "battery_hours": 30,
+                        "weight_grams": 250,
+                        "driver_size_mm": 40
+                    },
+                    "tags": [
+                        "bestseller",
+                        "premium",
+                        "gift-idea"
+                    ]
+                },
+                "highlight": {
+                    "name": [
+                        "Wireless <em>Noise-Canceling</em> <em>Headphones</em>"
+                    ],
+                    "description": [
+                        "Premium wireless <em>headphones</em> with active <em>noise cancellation</em>"
+                    ]
+                }
+            },
+            {
+                "_index": "products-2025-12",
+                "_id": "prod_def456",
+                "_score": 12.567,
+                "_source": {
+                    "name": "True Wireless Earbuds Pro",
+                    "description": "Compact earbuds with spatial audio and noise cancellation",
+                    "sku": "TWE-PRO-WHT",
+                    "price": 199.99,
+                    "currency": "USD",
+                    "category": [
+                        "electronics",
+                        "audio",
+                        "earbuds"
+                    ],
+                    "brand": "SoundTech",
+                    "in_stock": true,
+                    "stock_count": 423,
+                    "rating": 4.6,
+                    "review_count": 1563,
+                    "created_at": "2024-06-01T10:00:00Z",
+                    "updated_at": "2025-12-20T09:15:00Z",
+                    "attributes": {
+                        "color": "white",
+                        "connectivity": "bluetooth",
+                        "battery_hours": 8,
+                        "case_battery_hours": 24,
+                        "water_resistance": "IPX4"
+                    },
+                    "tags": [
+                        "new-arrival",
+                        "compact"
+                    ]
+                },
+                "highlight": {
+                    "description": [
+                        "Compact earbuds with spatial audio and <em>noise cancellation</em>"
+                    ]
+                }
+            }
+        ]
+    },
+    "aggregations": {
+        "brands": {
+            "doc_count_error_upper_bound": 0,
+            "sum_other_doc_count": 234,
+            "buckets": [
+                {
+                    "key": "SoundTech",
+                    "doc_count": 156
+                },
+                {
+                    "key": "AudioPro",
+                    "doc_count": 134
+                },
+                {
+                    "key": "BassKing",
+                    "doc_count": 98
+                }
+            ]
+        },
+        "price_ranges": {
+            "buckets": [
+                {
+                    "key": "0.0-100.0",
+                    "from": 0.0,
+                    "to": 100.0,
+                    "doc_count": 423
+                },
+                {
+                    "key": "100.0-200.0",
+                    "from": 100.0,
+                    "to": 200.0,
+                    "doc_count": 567
+                },
+                {
+                    "key": "200.0-500.0",
+                    "from": 200.0,
+                    "to": 500.0,
+                    "doc_count": 312
+                },
+                {
+                    "key": "500.0-*",
+                    "from": 500.0,
+                    "doc_count": 89
+                }
+            ]
+        },
+        "avg_rating": {
+            "value": 4.32
+        }
+    }
+}

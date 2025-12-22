@@ -1,0 +1,193 @@
+{
+    "test_run_id": "run_abc123def456",
+    "test_suite": "integration-tests",
+    "started_at": "2025-12-22T10:00:00Z",
+    "completed_at": "2025-12-22T10:15:32Z",
+    "duration_seconds": 932,
+    "environment": {
+        "os": "ubuntu-22.04",
+        "node_version": "20.10.0",
+        "ci_provider": "github-actions",
+        "branch": "feature/dark-mode",
+        "commit_sha": "abc123def456789"
+    },
+    "summary": {
+        "total": 156,
+        "passed": 148,
+        "failed": 5,
+        "skipped": 2,
+        "flaky": 1,
+        "pass_rate": 94.87
+    },
+    "coverage": {
+        "lines": {
+            "total": 5234,
+            "covered": 4187,
+            "percentage": 80.0
+        },
+        "functions": {
+            "total": 423,
+            "covered": 381,
+            "percentage": 90.1
+        },
+        "branches": {
+            "total": 1256,
+            "covered": 942,
+            "percentage": 75.0
+        },
+        "statements": {
+            "total": 5678,
+            "covered": 4542,
+            "percentage": 80.0
+        }
+    },
+    "test_results": [
+        {
+            "id": "test_001",
+            "name": "should authenticate user with valid credentials",
+            "suite": "Authentication",
+            "file": "tests/auth/login.test.ts",
+            "line": 15,
+            "status": "passed",
+            "duration_ms": 234,
+            "retries": 0,
+            "assertions": [
+                {
+                    "type": "equal",
+                    "expected": 200,
+                    "actual": 200,
+                    "passed": true
+                },
+                {
+                    "type": "defined",
+                    "field": "accessToken",
+                    "passed": true
+                }
+            ],
+            "logs": [],
+            "attachments": []
+        },
+        {
+            "id": "test_002",
+            "name": "should reject invalid password",
+            "suite": "Authentication",
+            "file": "tests/auth/login.test.ts",
+            "line": 42,
+            "status": "passed",
+            "duration_ms": 156,
+            "retries": 0,
+            "assertions": [
+                {
+                    "type": "equal",
+                    "expected": 401,
+                    "actual": 401,
+                    "passed": true
+                }
+            ],
+            "logs": [],
+            "attachments": []
+        },
+        {
+            "id": "test_003",
+            "name": "should display error message on network failure",
+            "suite": "Error Handling",
+            "file": "tests/error/network.test.ts",
+            "line": 28,
+            "status": "failed",
+            "duration_ms": 5023,
+            "retries": 2,
+            "assertions": [
+                {
+                    "type": "contains",
+                    "expected": "Network error",
+                    "actual": "Connection timeout",
+                    "passed": false
+                }
+            ],
+            "error": {
+                "name": "AssertionError",
+                "message": "Expected element to contain 'Network error' but got 'Connection timeout'",
+                "stack": "AssertionError: Expected element to contain 'Network error'\n    at Context.<anonymous> (tests/error/network.test.ts:35:12)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)"
+            },
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "Simulating network failure",
+                    "timestamp": "2025-12-22T10:05:12Z"
+                },
+                {
+                    "level": "error",
+                    "message": "Timeout waiting for element",
+                    "timestamp": "2025-12-22T10:05:17Z"
+                }
+            ],
+            "attachments": [
+                {
+                    "name": "screenshot-failure.png",
+                    "contentType": "image/png",
+                    "path": "test-results/test_003/screenshot-failure.png"
+                },
+                {
+                    "name": "trace.zip",
+                    "contentType": "application/zip",
+                    "path": "test-results/test_003/trace.zip"
+                }
+            ]
+        },
+        {
+            "id": "test_004",
+            "name": "should handle concurrent requests",
+            "suite": "Performance",
+            "file": "tests/perf/concurrent.test.ts",
+            "line": 10,
+            "status": "flaky",
+            "duration_ms": 8234,
+            "retries": 3,
+            "retry_results": [
+                {
+                    "attempt": 1,
+                    "status": "failed",
+                    "duration_ms": 8012
+                },
+                {
+                    "attempt": 2,
+                    "status": "failed",
+                    "duration_ms": 8156
+                },
+                {
+                    "attempt": 3,
+                    "status": "passed",
+                    "duration_ms": 8234
+                }
+            ],
+            "assertions": [],
+            "logs": []
+        },
+        {
+            "id": "test_005",
+            "name": "should skip legacy browser tests in CI",
+            "suite": "Compatibility",
+            "file": "tests/compat/legacy.test.ts",
+            "line": 5,
+            "status": "skipped",
+            "duration_ms": 0,
+            "skip_reason": "Legacy browser testing disabled in CI environment",
+            "annotations": [
+                "@skip-ci",
+                "@legacy"
+            ]
+        }
+    ],
+    "artifacts": [
+        {
+            "name": "junit-report.xml",
+            "path": "test-results/junit-report.xml",
+            "size_bytes": 45678
+        },
+        {
+            "name": "coverage-report.html",
+            "path": "coverage/index.html",
+            "size_bytes": 123456
+        }
+    ]
+}

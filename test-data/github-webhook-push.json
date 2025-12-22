@@ -1,0 +1,103 @@
+{
+    "ref": "refs/heads/main",
+    "before": "6dcb09b5b57875f334f61aebed695e2e4193db5e",
+    "after": "0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c",
+    "repository": {
+        "id": 35129377,
+        "node_id": "MDEwOlJlcG9zaXRvcnkzNTEyOTM3Nw==",
+        "name": "jsoncodegen",
+        "full_name": "acme/jsoncodegen",
+        "private": false,
+        "owner": {
+            "name": "acme",
+            "email": "ops@acme.com",
+            "login": "acme",
+            "id": 583231,
+            "avatar_url": "https://avatars.githubusercontent.com/u/583231?v=4",
+            "type": "Organization",
+            "site_admin": false
+        },
+        "html_url": "https://github.com/acme/jsoncodegen",
+        "description": "Generate code from JSON schemas",
+        "fork": false,
+        "created_at": 1438096000,
+        "updated_at": 1735055600,
+        "pushed_at": 1735055605,
+        "stargazers_count": 1482,
+        "watchers_count": 1482,
+        "forks_count": 237,
+        "default_branch": "main",
+        "topics": [
+            "codegen",
+            "json",
+            "rust",
+            "java"
+        ]
+    },
+    "pusher": {
+        "name": "developer",
+        "email": "dev@acme.com"
+    },
+    "sender": {
+        "login": "developer",
+        "id": 123456,
+        "avatar_url": "https://avatars.githubusercontent.com/u/123456?v=4",
+        "type": "User",
+        "site_admin": false
+    },
+    "commits": [
+        {
+            "id": "0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c",
+            "tree_id": "a2f6c0d8e9b1a4f7c2e5d8a1b4c7f0e3a6d9b2c5",
+            "distinct": true,
+            "message": "feat: add support for TypeScript output\n\nCloses #142",
+            "timestamp": "2025-12-22T10:30:00Z",
+            "url": "https://github.com/acme/jsoncodegen/commit/0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c",
+            "author": {
+                "name": "Developer Name",
+                "email": "dev@acme.com",
+                "username": "developer"
+            },
+            "committer": {
+                "name": "Developer Name",
+                "email": "dev@acme.com",
+                "username": "developer"
+            },
+            "added": [
+                "codegen-typescript/src/lib.rs"
+            ],
+            "removed": [],
+            "modified": [
+                "Cargo.toml",
+                "README.md"
+            ]
+        }
+    ],
+    "head_commit": {
+        "id": "0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c",
+        "tree_id": "a2f6c0d8e9b1a4f7c2e5d8a1b4c7f0e3a6d9b2c5",
+        "distinct": true,
+        "message": "feat: add support for TypeScript output\n\nCloses #142",
+        "timestamp": "2025-12-22T10:30:00Z",
+        "author": {
+            "name": "Developer Name",
+            "email": "dev@acme.com",
+            "username": "developer"
+        },
+        "committer": {
+            "name": "Developer Name",
+            "email": "dev@acme.com",
+            "username": "developer"
+        },
+        "added": [
+            "codegen-typescript/src/lib.rs"
+        ],
+        "removed": [],
+        "modified": [
+            "Cargo.toml",
+            "README.md"
+        ]
+    },
+    "forced": false,
+    "compare": "https://github.com/acme/jsoncodegen/compare/6dcb09b5b578...0d1a26e67d8f"
+}

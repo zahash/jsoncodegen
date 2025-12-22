@@ -1,0 +1,120 @@
+{
+    "id": "pi_3OxYz1234567890abcdef",
+    "object": "payment_intent",
+    "amount": 249900,
+    "amount_capturable": 0,
+    "amount_received": 249900,
+    "currency": "usd",
+    "status": "succeeded",
+    "client_secret": "pi_3OxYz1234567890abcdef_secret_xyz123",
+    "created": 1735055600,
+    "livemode": true,
+    "payment_method": "pm_1OxYz0987654321fedcba",
+    "payment_method_types": [
+        "card"
+    ],
+    "capture_method": "automatic",
+    "confirmation_method": "automatic",
+    "customer": "cus_Pq1234567890abcd",
+    "description": "Order #ORD-2025-00142857",
+    "metadata": {
+        "order_id": "ORD-2025-00142857",
+        "customer_email": "customer@example.com",
+        "product_ids": "SKU-001,SKU-002,SKU-003"
+    },
+    "receipt_email": "customer@example.com",
+    "charges": {
+        "object": "list",
+        "data": [
+            {
+                "id": "ch_3OxYz1234567890abcdef",
+                "object": "charge",
+                "amount": 249900,
+                "amount_captured": 249900,
+                "amount_refunded": 0,
+                "balance_transaction": "txn_1OxYz1234567890",
+                "billing_details": {
+                    "address": {
+                        "city": "San Francisco",
+                        "country": "US",
+                        "line1": "123 Market Street",
+                        "line2": "Suite 400",
+                        "postal_code": "94102",
+                        "state": "CA"
+                    },
+                    "email": "customer@example.com",
+                    "name": "Jane Doe",
+                    "phone": "+14155551234"
+                },
+                "captured": true,
+                "created": 1735055600,
+                "currency": "usd",
+                "customer": "cus_Pq1234567890abcd",
+                "dispute": null,
+                "disputed": false,
+                "failure_code": null,
+                "failure_message": null,
+                "fraud_details": {},
+                "outcome": {
+                    "network_status": "approved_by_network",
+                    "reason": null,
+                    "risk_level": "normal",
+                    "risk_score": 32,
+                    "seller_message": "Payment complete.",
+                    "type": "authorized"
+                },
+                "paid": true,
+                "payment_method_details": {
+                    "card": {
+                        "brand": "visa",
+                        "checks": {
+                            "address_line1_check": "pass",
+                            "address_postal_code_check": "pass",
+                            "cvc_check": "pass"
+                        },
+                        "country": "US",
+                        "exp_month": 12,
+                        "exp_year": 2027,
+                        "fingerprint": "fp_abc123def456",
+                        "funding": "credit",
+                        "last4": "4242",
+                        "network": "visa",
+                        "three_d_secure": null,
+                        "wallet": null
+                    },
+                    "type": "card"
+                },
+                "receipt_url": "https://pay.stripe.com/receipts/...",
+                "refunded": false,
+                "refunds": {
+                    "object": "list",
+                    "data": [],
+                    "has_more": false,
+                    "total_count": 0,
+                    "url": "/v1/charges/ch_3OxYz1234567890abcdef/refunds"
+                },
+                "status": "succeeded"
+            }
+        ],
+        "has_more": false,
+        "total_count": 1,
+        "url": "/v1/charges?payment_intent=pi_3OxYz1234567890abcdef"
+    },
+    "shipping": {
+        "address": {
+            "city": "San Francisco",
+            "country": "US",
+            "line1": "123 Market Street",
+            "line2": "Suite 400",
+            "postal_code": "94102",
+            "state": "CA"
+        },
+        "carrier": "fedex",
+        "name": "Jane Doe",
+        "phone": "+14155551234",
+        "tracking_number": "794644790269"
+    },
+    "application_fee_amount": null,
+    "canceled_at": null,
+    "cancellation_reason": null
+}

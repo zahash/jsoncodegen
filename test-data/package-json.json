@@ -1,0 +1,90 @@
+{
+    "name": "@acme/component-library",
+    "version": "3.2.1",
+    "description": "A comprehensive React component library for Acme applications",
+    "main": "dist/cjs/index.js",
+    "module": "dist/esm/index.js",
+    "types": "dist/types/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js",
+            "types": "./dist/types/index.d.ts"
+        },
+        "./styles": "./dist/styles.css"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "sideEffects": [
+        "*.css"
+    ],
+    "scripts": {
+        "build": "rollup -c",
+        "build:types": "tsc --emitDeclarationOnly",
+        "dev": "rollup -c -w",
+        "test": "vitest",
+        "test:coverage": "vitest --coverage",
+        "lint": "eslint src --ext .ts,.tsx",
+        "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+        "storybook": "storybook dev -p 6006",
+        "build-storybook": "storybook build",
+        "prepublishOnly": "npm run build"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/acme/component-library.git"
+    },
+    "keywords": [
+        "react",
+        "components",
+        "ui",
+        "design-system",
+        "typescript"
+    ],
+    "author": {
+        "name": "Acme Engineering",
+        "email": "engineering@acme.com",
+        "url": "https://acme.com"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/acme/component-library/issues"
+    },
+    "homepage": "https://components.acme.com",
+    "peerDependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+    },
+    "dependencies": {
+        "@floating-ui/react": "^0.26.4",
+        "clsx": "^2.1.0",
+        "framer-motion": "^11.0.3"
+    },
+    "devDependencies": {
+        "@storybook/react": "^8.0.0",
+        "@testing-library/react": "^14.1.2",
+        "@types/react": "^18.2.48",
+        "@typescript-eslint/eslint-plugin": "^6.19.1",
+        "eslint": "^8.56.0",
+        "prettier": "^3.2.4",
+        "rollup": "^4.9.6",
+        "typescript": "^5.3.3",
+        "vitest": "^1.2.2"
+    },
+    "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=9.0.0"
+    },
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
+    },
+    "browserslist": [
+        ">0.2%",
+        "not dead",
+        "not op_mini all"
+    ]
+}

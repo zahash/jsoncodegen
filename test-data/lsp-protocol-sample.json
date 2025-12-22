@@ -1,0 +1,172 @@
+{
+    "workspace": {
+        "rootUri": "file:///Users/dev/project",
+        "workspaceFolders": [
+            {
+                "uri": "file:///Users/dev/project",
+                "name": "project"
+            }
+        ]
+    },
+    "textDocument": {
+        "uri": "file:///Users/dev/project/src/index.ts",
+        "languageId": "typescript",
+        "version": 42,
+        "text": "import { useState } from 'react';\n\nexport function Counter() {\n  const [count, setCount] = useState(0);\n  return <button onClick={() => setCount(count + 1)}>{count}</button>;\n}\n"
+    },
+    "capabilities": {
+        "textDocumentSync": {
+            "openClose": true,
+            "change": 2,
+            "willSave": true,
+            "willSaveWaitUntil": true,
+            "save": {
+                "includeText": true
+            }
+        },
+        "completionProvider": {
+            "triggerCharacters": [
+                ".",
+                "<",
+                "'",
+                "\"",
+                "/",
+                "@"
+            ],
+            "resolveProvider": true
+        },
+        "hoverProvider": true,
+        "signatureHelpProvider": {
+            "triggerCharacters": [
+                "(",
+                ","
+            ],
+            "retriggerCharacters": [
+                ")"
+            ]
+        },
+        "definitionProvider": true,
+        "typeDefinitionProvider": true,
+        "implementationProvider": true,
+        "referencesProvider": true,
+        "documentHighlightProvider": true,
+        "documentSymbolProvider": true,
+        "workspaceSymbolProvider": true,
+        "codeActionProvider": {
+            "codeActionKinds": [
+                "quickfix",
+                "refactor",
+                "refactor.extract",
+                "refactor.inline",
+                "refactor.rewrite",
+                "source.organizeImports",
+                "source.fixAll"
+            ],
+            "resolveProvider": true
+        },
+        "codeLensProvider": {
+            "resolveProvider": true
+        },
+        "documentFormattingProvider": true,
+        "documentRangeFormattingProvider": true,
+        "documentOnTypeFormattingProvider": {
+            "firstTriggerCharacter": ";",
+            "moreTriggerCharacter": [
+                "}",
+                "\n"
+            ]
+        },
+        "renameProvider": {
+            "prepareProvider": true
+        },
+        "foldingRangeProvider": true,
+        "selectionRangeProvider": true,
+        "callHierarchyProvider": true,
+        "semanticTokensProvider": {
+            "legend": {
+                "tokenTypes": [
+                    "namespace",
+                    "type",
+                    "class",
+                    "enum",
+                    "interface",
+                    "struct",
+                    "typeParameter",
+                    "parameter",
+                    "variable",
+                    "property",
+                    "enumMember",
+                    "event",
+                    "function",
+                    "method",
+                    "macro",
+                    "keyword",
+                    "modifier",
+                    "comment",
+                    "string",
+                    "number",
+                    "regexp",
+                    "operator"
+                ],
+                "tokenModifiers": [
+                    "declaration",
+                    "definition",
+                    "readonly",
+                    "static",
+                    "deprecated",
+                    "abstract",
+                    "async",
+                    "modification",
+                    "documentation",
+                    "defaultLibrary"
+                ]
+            },
+            "full": true,
+            "range": true
+        },
+        "inlayHintProvider": {
+            "resolveProvider": true
+        },
+        "diagnosticProvider": {
+            "identifier": "typescript",
+            "interFileDependencies": true,
+            "workspaceDiagnostics": true
+        }
+    },
+    "diagnostics": [
+        {
+            "range": {
+                "start": {
+                    "line": 3,
+                    "character": 8
+                },
+                "end": {
+                    "line": 3,
+                    "character": 13
+                }
+            },
+            "severity": 2,
+            "code": 6133,
+            "source": "typescript",
+            "message": "'count' is declared but its value is never read.",
+            "tags": [
+                1
+            ],
+            "relatedInformation": []
+        }
+    ],
+    "completionItems": [
+        {
+            "label": "useState",
+            "kind": 3,
+            "detail": "(initialState: S | (() => S)): [S, Dispatch<SetStateAction<S>>]",
+            "documentation": {
+                "kind": "markdown",
+                "value": "Returns a stateful value, and a function to update it."
+            },
+            "insertText": "useState($1)",
+            "insertTextFormat": 2,
+            "sortText": "0"
+        }
+    ]
+}

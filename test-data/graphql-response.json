@@ -1,0 +1,134 @@
+{
+    "data": {
+        "viewer": {
+            "login": "developer",
+            "name": "Developer Name",
+            "email": "dev@example.com",
+            "bio": "Building things with code",
+            "avatarUrl": "https://example.com/avatar.jpg",
+            "followers": {
+                "totalCount": 1542
+            },
+            "repositories": {
+                "totalCount": 87,
+                "pageInfo": {
+                    "hasNextPage": true,
+                    "endCursor": "Y3Vyc29yOnYyOpK5MjAyNS0xMi0yMlQwMDowMDowMFoNOjEyMzQ1Ng=="
+                },
+                "nodes": [
+                    {
+                        "id": "R_kgDOGrJvnA",
+                        "name": "awesome-project",
+                        "description": "An awesome open source project",
+                        "url": "https://github.com/developer/awesome-project",
+                        "isPrivate": false,
+                        "isFork": false,
+                        "stargazerCount": 3421,
+                        "forkCount": 289,
+                        "primaryLanguage": {
+                            "name": "Rust",
+                            "color": "#dea584"
+                        },
+                        "languages": {
+                            "nodes": [
+                                {
+                                    "name": "Rust",
+                                    "color": "#dea584"
+                                },
+                                {
+                                    "name": "TypeScript",
+                                    "color": "#3178c6"
+                                }
+                            ]
+                        },
+                        "createdAt": "2022-05-15T10:30:00Z",
+                        "updatedAt": "2025-12-21T18:45:00Z",
+                        "pushedAt": "2025-12-21T18:45:00Z"
+                    },
+                    {
+                        "id": "R_kgDOHxYz12",
+                        "name": "dotfiles",
+                        "description": null,
+                        "url": "https://github.com/developer/dotfiles",
+                        "isPrivate": false,
+                        "isFork": false,
+                        "stargazerCount": 45,
+                        "forkCount": 12,
+                        "primaryLanguage": {
+                            "name": "Shell",
+                            "color": "#89e051"
+                        },
+                        "languages": {
+                            "nodes": [
+                                {
+                                    "name": "Shell",
+                                    "color": "#89e051"
+                                },
+                                {
+                                    "name": "Vim Script",
+                                    "color": "#199f4b"
+                                }
+                            ]
+                        },
+                        "createdAt": "2019-01-10T08:00:00Z",
+                        "updatedAt": "2025-11-30T12:00:00Z",
+                        "pushedAt": "2025-11-30T12:00:00Z"
+                    }
+                ]
+            },
+            "contributionsCollection": {
+                "totalCommitContributions": 2847,
+                "totalIssueContributions": 156,
+                "totalPullRequestContributions": 423,
+                "contributionCalendar": {
+                    "totalContributions": 3426,
+                    "weeks": [
+                        {
+                            "contributionDays": [
+                                {
+                                    "date": "2025-12-15",
+                                    "contributionCount": 8,
+                                    "weekday": 0
+                                },
+                                {
+                                    "date": "2025-12-16",
+                                    "contributionCount": 12,
+                                    "weekday": 1
+                                },
+                                {
+                                    "date": "2025-12-17",
+                                    "contributionCount": 5,
+                                    "weekday": 2
+                                },
+                                {
+                                    "date": "2025-12-18",
+                                    "contributionCount": 0,
+                                    "weekday": 3
+                                },
+                                {
+                                    "date": "2025-12-19",
+                                    "contributionCount": 15,
+                                    "weekday": 4
+                                },
+                                {
+                                    "date": "2025-12-20",
+                                    "contributionCount": 3,
+                                    "weekday": 5
+                                },
+                                {
+                                    "date": "2025-12-21",
+                                    "contributionCount": 7,
+                                    "weekday": 6
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    "errors": null,
+    "extensions": {
+        "requestId": "abc123-def456-ghi789"
+    }
+}

@@ -1,0 +1,141 @@
+{
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": "https://shop.example.com/products/laptop-pro-16",
+    "name": "LaptopPro 16-inch (2025)",
+    "description": "Professional-grade laptop with M4 chip, 16-inch Liquid Retina XDR display",
+    "sku": "LAPTOP-PRO-16-2025",
+    "mpn": "LP16-M4-32-1TB",
+    "gtin13": "0123456789012",
+    "brand": {
+        "@type": "Brand",
+        "name": "TechCorp"
+    },
+    "manufacturer": {
+        "@type": "Organization",
+        "name": "TechCorp Inc.",
+        "url": "https://techcorp.example.com"
+    },
+    "image": [
+        "https://cdn.example.com/products/laptop-pro-16-front.jpg",
+        "https://cdn.example.com/products/laptop-pro-16-side.jpg",
+        "https://cdn.example.com/products/laptop-pro-16-keyboard.jpg"
+    ],
+    "offers": {
+        "@type": "Offer",
+        "url": "https://shop.example.com/products/laptop-pro-16",
+        "priceCurrency": "USD",
+        "price": 2499.00,
+        "priceValidUntil": "2025-12-31",
+        "availability": "https://schema.org/InStock",
+        "itemCondition": "https://schema.org/NewCondition",
+        "seller": {
+            "@type": "Organization",
+            "name": "TechCorp Official Store"
+        },
+        "shippingDetails": {
+            "@type": "OfferShippingDetails",
+            "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": 0,
+                "currency": "USD"
+            },
+            "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                    "@type": "QuantitativeValue",
+                    "minValue": 1,
+                    "maxValue": 2,
+                    "unitCode": "DAY"
+                },
+                "transitTime": {
+                    "@type": "QuantitativeValue",
+                    "minValue": 3,
+                    "maxValue": 5,
+                    "unitCode": "DAY"
+                }
+            }
+        },
+        "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+            "merchantReturnDays": 30,
+            "returnMethod": "https://schema.org/ReturnByMail",
+            "returnFees": "https://schema.org/FreeReturn"
+        }
+    },
+    "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": 4.8,
+        "bestRating": 5,
+        "worstRating": 1,
+        "ratingCount": 2847,
+        "reviewCount": 1523
+    },
+    "review": [
+        {
+            "@type": "Review",
+            "author": {
+                "@type": "Person",
+                "name": "Tech Enthusiast"
+            },
+            "datePublished": "2025-12-15",
+            "reviewRating": {
+                "@type": "Rating",
+                "ratingValue": 5,
+                "bestRating": 5
+            },
+            "reviewBody": "Best laptop I've ever owned. The display is incredible."
+        }
+    ],
+    "additionalProperty": [
+        {
+            "@type": "PropertyValue",
+            "name": "Processor",
+            "value": "M4 Pro Chip"
+        },
+        {
+            "@type": "PropertyValue",
+            "name": "Memory",
+            "value": "32GB",
+            "unitCode": "GB"
+        },
+        {
+            "@type": "PropertyValue",
+            "name": "Storage",
+            "value": "1TB SSD"
+        },
+        {
+            "@type": "PropertyValue",
+            "name": "Display",
+            "value": "16.2-inch Liquid Retina XDR"
+        },
+        {
+            "@type": "PropertyValue",
+            "name": "Battery Life",
+            "value": "22 hours"
+        }
+    ],
+    "category": "Electronics > Computers > Laptops",
+    "releaseDate": "2025-10-01",
+    "weight": {
+        "@type": "QuantitativeValue",
+        "value": 2.14,
+        "unitCode": "KGM"
+    },
+    "depth": {
+        "@type": "QuantitativeValue",
+        "value": 35.57,
+        "unitCode": "CMT"
+    },
+    "width": {
+        "@type": "QuantitativeValue",
+        "value": 24.81,
+        "unitCode": "CMT"
+    },
+    "height": {
+        "@type": "QuantitativeValue",
+        "value": 1.68,
+        "unitCode": "CMT"
+    }
+}

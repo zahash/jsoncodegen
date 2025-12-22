@@ -1,0 +1,111 @@
+[
+    {
+        "traceId": "abc123def456789012345678",
+        "spanId": "1234567890abcdef",
+        "parentSpanId": null,
+        "operationName": "HTTP GET /api/users/123",
+        "serviceName": "api-gateway",
+        "startTime": 1735055600000000,
+        "duration": 45230,
+        "status": {
+            "code": "OK",
+            "message": null
+        },
+        "attributes": {
+            "http.method": "GET",
+            "http.url": "https://api.example.com/api/users/123",
+            "http.status_code": 200,
+            "http.user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+            "net.peer.ip": "203.0.113.42",
+            "net.peer.port": 443
+        },
+        "events": [
+            {
+                "name": "request.received",
+                "timestamp": 1735055600000000,
+                "attributes": {}
+            },
+            {
+                "name": "response.sent",
+                "timestamp": 1735055600045230,
+                "attributes": {
+                    "response.size": 1247
+                }
+            }
+        ],
+        "links": []
+    },
+    {
+        "traceId": "abc123def456789012345678",
+        "spanId": "fedcba0987654321",
+        "parentSpanId": "1234567890abcdef",
+        "operationName": "user-service.getUser",
+        "serviceName": "user-service",
+        "startTime": 1735055600002000,
+        "duration": 12450,
+        "status": {
+            "code": "OK",
+            "message": null
+        },
+        "attributes": {
+            "rpc.system": "grpc",
+            "rpc.service": "UserService",
+            "rpc.method": "GetUser",
+            "user.id": "123"
+        },
+        "events": [],
+        "links": []
+    },
+    {
+        "traceId": "abc123def456789012345678",
+        "spanId": "abcdef1234567890",
+        "parentSpanId": "fedcba0987654321",
+        "operationName": "postgres.query",
+        "serviceName": "user-service",
+        "startTime": 1735055600003500,
+        "duration": 8920,
+        "status": {
+            "code": "OK",
+            "message": null
+        },
+        "attributes": {
+            "db.system": "postgresql",
+            "db.name": "users_db",
+            "db.statement": "SELECT * FROM users WHERE id = $1",
+            "db.operation": "SELECT",
+            "db.sql.table": "users"
+        },
+        "events": [
+            {
+                "name": "db.connection.acquired",
+                "timestamp": 1735055600003600,
+                "attributes": {
+                    "pool.size": 10,
+                    "pool.available": 7
+                }
+            }
+        ],
+        "links": []
+    },
+    {
+        "traceId": "abc123def456789012345678",
+        "spanId": "0987654321fedcba",
+        "parentSpanId": "fedcba0987654321",
+        "operationName": "redis.get",
+        "serviceName": "user-service",
+        "startTime": 1735055600002200,
+        "duration": 450,
+        "status": {
+            "code": "OK",
+            "message": null
+        },
+        "attributes": {
+            "db.system": "redis",
+            "db.operation": "GET",
+            "db.redis.key": "user:123:profile",
+            "cache.hit": false
+        },
+        "events": [],
+        "links": []
+    }
+]

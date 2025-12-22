@@ -1,0 +1,220 @@
+{
+    "version": "2.0.0",
+    "runId": "550e8400-e29b-41d4-a716-446655440000",
+    "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+    "runs": [
+        {
+            "tool": {
+                "driver": {
+                    "name": "SecurityScanner",
+                    "version": "3.2.1",
+                    "informationUri": "https://securityscanner.example.com",
+                    "rules": [
+                        {
+                            "id": "SEC001",
+                            "name": "HardcodedCredentials",
+                            "shortDescription": {
+                                "text": "Hardcoded credentials detected"
+                            },
+                            "fullDescription": {
+                                "text": "The code contains hardcoded credentials which could be exposed if the source code is leaked."
+                            },
+                            "helpUri": "https://securityscanner.example.com/rules/SEC001",
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "properties": {
+                                "tags": [
+                                    "security",
+                                    "credentials",
+                                    "CWE-798"
+                                ],
+                                "precision": "high"
+                            }
+                        },
+                        {
+                            "id": "SEC002",
+                            "name": "SQLInjection",
+                            "shortDescription": {
+                                "text": "Potential SQL injection vulnerability"
+                            },
+                            "fullDescription": {
+                                "text": "User input is concatenated directly into SQL queries without proper sanitization."
+                            },
+                            "helpUri": "https://securityscanner.example.com/rules/SEC002",
+                            "defaultConfiguration": {
+                                "level": "error"
+                            },
+                            "properties": {
+                                "tags": [
+                                    "security",
+                                    "sql",
+                                    "injection",
+                                    "CWE-89"
+                                ],
+                                "precision": "high"
+                            }
+                        }
+                    ]
+                }
+            },
+            "invocations": [
+                {
+                    "executionSuccessful": true,
+                    "commandLine": "securityscanner scan --config .scannerrc.json",
+                    "startTimeUtc": "2025-12-22T10:00:00Z",
+                    "endTimeUtc": "2025-12-22T10:05:32Z",
+                    "workingDirectory": {
+                        "uri": "file:///Users/dev/project"
+                    }
+                }
+            ],
+            "results": [
+                {
+                    "ruleId": "SEC001",
+                    "ruleIndex": 0,
+                    "level": "error",
+                    "message": {
+                        "text": "Hardcoded API key detected in configuration file"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "src/config/api.ts",
+                                    "uriBaseId": "%SRCROOT%"
+                                },
+                                "region": {
+                                    "startLine": 15,
+                                    "startColumn": 21,
+                                    "endLine": 15,
+                                    "endColumn": 67,
+                                    "snippet": {
+                                        "text": "const API_KEY = \"sk-live-abc123def456ghi789\";"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "fixes": [
+                        {
+                            "description": {
+                                "text": "Use environment variable instead"
+                            },
+                            "artifactChanges": [
+                                {
+                                    "artifactLocation": {
+                                        "uri": "src/config/api.ts"
+                                    },
+                                    "replacements": [
+                                        {
+                                            "deletedRegion": {
+                                                "startLine": 15,
+                                                "startColumn": 21,
+                                                "endLine": 15,
+                                                "endColumn": 67
+                                            },
+                                            "insertedContent": {
+                                                "text": "const API_KEY = process.env.API_KEY;"
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ],
+                    "fingerprints": {
+                        "primaryLocationLineHash": "abc123def456"
+                    },
+                    "partialFingerprints": {
+                        "primaryLocationStartColumnFingerprint": "21"
+                    }
+                },
+                {
+                    "ruleId": "SEC002",
+                    "ruleIndex": 1,
+                    "level": "error",
+                    "message": {
+                        "text": "SQL query constructed from user input without parameterization"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "src/db/queries.ts",
+                                    "uriBaseId": "%SRCROOT%"
+                                },
+                                "region": {
+                                    "startLine": 42,
+                                    "startColumn": 5,
+                                    "endLine": 42,
+                                    "endColumn": 78
+                                }
+                            }
+                        }
+                    ],
+                    "relatedLocations": [
+                        {
+                            "id": 1,
+                            "message": {
+                                "text": "User input originates here"
+                            },
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "src/handlers/user.ts"
+                                },
+                                "region": {
+                                    "startLine": 28,
+                                    "startColumn": 15
+                                }
+                            }
+                        }
+                    ],
+                    "codeFlows": [
+                        {
+                            "threadFlows": [
+                                {
+                                    "locations": [
+                                        {
+                                            "location": {
+                                                "physicalLocation": {
+                                                    "artifactLocation": {
+                                                        "uri": "src/handlers/user.ts"
+                                                    },
+                                                    "region": {
+                                                        "startLine": 28
+                                                    }
+                                                },
+                                                "message": {
+                                                    "text": "User input received"
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "location": {
+                                                "physicalLocation": {
+                                                    "artifactLocation": {
+                                                        "uri": "src/db/queries.ts"
+                                                    },
+                                                    "region": {
+                                                        "startLine": 42
+                                                    }
+                                                },
+                                                "message": {
+                                                    "text": "Input used in SQL query"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "automationDetails": {
+                "id": "nightly-security-scan/2025-12-22"
+            }
+        }
+    ]
+}

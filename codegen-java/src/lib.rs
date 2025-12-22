@@ -373,7 +373,7 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
                     "\t\t\t\tcase VALUE_TRUE: case VALUE_FALSE: value.{} = parser.readValueAs(Boolean.class); break;",
                     union_var.var_name
                 )?,
-                _ if union_var.type_name.starts_with("List") => writeln!(
+                _ if union_var.type_name.ends_with("[]") => writeln!(
                     out,
                     "\t\t\t\tcase START_ARRAY: value.{} = parser.readValueAs({}.class); break;",
                     union_var.var_name, union_var.type_name

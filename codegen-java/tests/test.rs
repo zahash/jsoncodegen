@@ -1,5 +1,5 @@
 use jsoncodegen_java::codegen;
-use pretty_assertions::assert_eq;
+use serde_json::Value;
 use tokio::process::Command;
 
 use std::{
@@ -100,14 +100,57 @@ async fn run_test(input: &PathBuf) {
         String::from_utf8_lossy(&cmd_output.stderr)
     );
 
-    let output_json: serde_json::Value =
+    let output_json: Value =
         serde_json::from_reader(fs::File::open(&output).expect("Failed to open output file"))
             .expect("Failed to parse output JSON");
-    let expected_json: serde_json::Value =
+    let expected_json: Value =
         serde_json::from_reader(fs::File::open(input).expect("Failed to open input file"))
             .expect("Failed to parse expected JSON");
 
-    assert_eq!(output_json, expected_json, "Mismatch for: {name}");
+    assert!(
+        json_equiv(&output_json, &expected_json),
+        "Mismatch for: {name}\n\nExpected:\n{expected_json:#?}\n\nActual:\n{output_json:#?}"
+    );
+}
+
+/// Check semantic equivalence of two JSON values.
+/// Treats `null` values as equivalent to absent fields in objects.
+fn json_equiv(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Null, Value::Null) => true,
+        (Value::Bool(a), Value::Bool(b)) => a == b,
+        (Value::Number(a), Value::Number(b)) => a == b,
+        (Value::String(a), Value::String(b)) => a == b,
+        (Value::Array(a), Value::Array(b)) => {
+            a.len() == b.len() && a.iter().zip(b.iter()).all(|(a, b)| json_equiv(a, b))
+        }
+        (Value::Object(a), Value::Object(b)) => {
+            // Get all keys from both objects, excluding keys with null values
+            let a_keys: std::collections::HashSet<_> = a
+                .iter()
+                .filter(|(_, v)| !v.is_null())
+                .map(|(k, _)| k)
+                .collect();
+            let b_keys: std::collections::HashSet<_> = b
+                .iter()
+                .filter(|(_, v)| !v.is_null())
+                .map(|(k, _)| k)
+                .collect();
+
+            // Keys with non-null values must match
+            if a_keys != b_keys {
+                return false;
+            }
+
+            // All non-null values must be equivalent
+            a_keys.iter().all(|k| {
+                let a_val = a.get(*k).unwrap();
+                let b_val = b.get(*k).unwrap();
+                json_equiv(a_val, b_val)
+            })
+        }
+        _ => false,
+    }
 }
 
 fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {

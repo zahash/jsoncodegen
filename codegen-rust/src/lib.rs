@@ -290,6 +290,7 @@ fn write(rust: Rust, out: &mut dyn io::Write) -> io::Result<()> {
 
     for def in rust.enums {
         writeln!(out, "#[derive(Serialize, Deserialize, Debug)]")?;
+        writeln!(out, "#[serde(untagged)]")?;
         writeln!(out, "pub enum {} {{", def.name)?;
         for variant in def.variants {
             writeln!(

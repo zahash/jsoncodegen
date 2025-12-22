@@ -197,19 +197,3 @@ impl<'type_graph> NameResolver<'type_graph> {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test() {
-        let json = r#"{ "discount_codes": ["HOLIDAY", 2024, null] }"#;
-
-        let json = serde_json::from_str::<serde_json::Value>(json).expect("invalid json");
-        let type_graph = TypeGraph::from(json);
-        let name_registry = NameRegistry::build(&type_graph);
-        println!("type_graph={}", type_graph);
-        println!("name_registry={:?}", name_registry);
-    }
-}

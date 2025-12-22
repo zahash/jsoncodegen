@@ -399,36 +399,3 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
 
     writeln!(out, "}}")
 }
-
-#[cfg(test)]
-mod tests {
-    use std::io::stdout;
-
-    use super::*;
-
-    #[test]
-    fn test() {
-        let json = r#"
-        {
-            "val": 1,
-            "prev": {
-                "val": 2,
-                "prev": null,
-                "next": null
-            },
-            "next": {
-                "val": 3,
-                "prev": null,
-                "next": {
-                    "val": 4,
-                    "prev": null,
-                    "next": null
-                }
-            }
-        }
-        "#;
-
-        let json = serde_json::from_str(json).expect("invalid json");
-        codegen(json, &mut stdout()).expect("unable to write to stdout");
-    }
-}

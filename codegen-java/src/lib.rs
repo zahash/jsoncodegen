@@ -20,6 +20,7 @@ struct Java {
 struct Class {
     name: String,
     vars: Vec<MemberVar>,
+    needs_custom_serializer_deserializer: bool,
 }
 
 struct MemberVar {
@@ -70,8 +71,12 @@ impl From<serde_json::Value> for Java {
                 let class_name = derive_type_name(*type_id, &type_graph, &name_registry);
 
                 let mut vars: Vec<MemberVar> = Vec::with_capacity(object_fields.len());
+                let mut needs_custom_serializer_deserializer = false;
                 for (idx, object_field) in object_fields.iter().enumerate() {
                     let original_name = object_field.name.clone();
+                    if original_name.is_empty() {
+                        needs_custom_serializer_deserializer = true;
+                    }
                     let type_name =
                         derive_type_name(object_field.type_id, &type_graph, &name_registry);
                     let var_name = match is_java_identifier(&object_field.name) {
@@ -93,9 +98,17 @@ impl From<serde_json::Value> for Java {
                     });
                 }
 
+                // don't need to annotate if custom serializer/deserializer is used
+                if needs_custom_serializer_deserializer {
+                    for var in &mut vars {
+                        var.annotate = false;
+                    }
+                }
+
                 classes.push(Class {
                     name: class_name,
                     vars,
+                    needs_custom_serializer_deserializer,
                 });
             }
 
@@ -266,11 +279,21 @@ pub fn decapitalize_java(s: &str) -> String {
 }
 
 fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
-    if !java.classes.is_empty() {
+    if java
+        .classes
+        .iter()
+        .flat_map(|c| &c.vars)
+        .any(|v| v.annotate)
+    {
         writeln!(out, "import com.fasterxml.jackson.annotation.*;")?;
     }
 
-    if !java.unions.is_empty() {
+    if !java.unions.is_empty()
+        || java
+            .classes
+            .iter()
+            .any(|c| c.needs_custom_serializer_deserializer)
+    {
         writeln!(out, "import com.fasterxml.jackson.core.*;")?;
         writeln!(out, "import com.fasterxml.jackson.databind.*;")?;
         writeln!(out, "import com.fasterxml.jackson.databind.annotation.*;")?;
@@ -285,6 +308,18 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
     writeln!(out, "\tpublic static class ROOT extends {} {{}}", java.root)?;
 
     for class in java.classes {
+        if class.needs_custom_serializer_deserializer {
+            writeln!(
+                out,
+                "\t@JsonSerialize(using = {}.Serializer.class)",
+                class.name
+            )?;
+            writeln!(
+                out,
+                "\t@JsonDeserialize(using = {}.Deserializer.class)",
+                class.name
+            )?;
+        }
         writeln!(out, "\tpublic static class {} {{", class.name)?;
         for member_var in &class.vars {
             writeln!(
@@ -311,6 +346,86 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
                 "\t\tpublic void {}({} value) {{ this.{} = value; }}",
                 member_var.setter_name, member_var.type_name, member_var.var_name
             )?;
+        }
+
+        if class.needs_custom_serializer_deserializer {
+            // --- Custom Serializer ---
+            writeln!(
+                out,
+                "\t\tstatic class Serializer extends JsonSerializer<{}> {{",
+                class.name
+            )?;
+            writeln!(
+                out,
+                "\t\t\t@Override public void serialize({} value, JsonGenerator gen, SerializerProvider serializers) throws IOException {{",
+                class.name
+            )?;
+            writeln!(out, "\t\t\t\tgen.writeStartObject();")?;
+
+            for var in &class.vars {
+                writeln!(out, "\t\t\t\tif (value.{} != null) {{", var.var_name)?;
+                writeln!(
+                    out,
+                    "\t\t\t\t\tgen.writeFieldName({:?});",
+                    var.original_name
+                )?;
+                writeln!(
+                    out,
+                    "\t\t\t\t\tserializers.defaultSerializeValue(value.{}, gen);",
+                    var.var_name
+                )?;
+                writeln!(out, "\t\t\t\t}}")?;
+            }
+
+            writeln!(out, "\t\t\t\tgen.writeEndObject();")?;
+            writeln!(out, "\t\t\t}}")?;
+            writeln!(out, "\t\t}}")?;
+
+            // --- Custom Deserializer ---
+            writeln!(
+                out,
+                "\t\tstatic class Deserializer extends JsonDeserializer<{}> {{",
+                class.name
+            )?;
+            writeln!(
+                out,
+                "\t\t\t@Override public {} deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {{",
+                class.name
+            )?;
+            writeln!(
+                out,
+                "\t\t\t\t{} instance = new {}();",
+                class.name, class.name
+            )?;
+            writeln!(
+                out,
+                "\t\t\t\twhile (p.nextToken() != JsonToken.END_OBJECT) {{"
+            )?;
+            writeln!(out, "\t\t\t\t\tString fieldName = p.currentName();")?;
+            writeln!(out, "\t\t\t\t\tp.nextToken();")?;
+
+            writeln!(out, "\t\t\t\t\tif (fieldName == null) {{ continue; }}")?;
+
+            for (i, var) in class.vars.iter().enumerate() {
+                let check = if i == 0 { "if" } else { "else if" };
+                writeln!(
+                    out,
+                    "\t\t\t\t\t{} ({:?}.equals(fieldName)) {{",
+                    check, var.original_name
+                )?;
+                writeln!(
+                    out,
+                    "\t\t\t\t\t\tinstance.{} = ctxt.readValue(p, {}.class);",
+                    var.var_name, var.type_name
+                )?;
+                writeln!(out, "\t\t\t\t\t}}")?;
+            }
+
+            writeln!(out, "\t\t\t\t\telse {{ p.skipChildren(); }}")?;
+            writeln!(out, "\t\t\t\t}}")?;
+            writeln!(out, "\t\t\t\treturn instance;")?;
+            writeln!(out, "\t\t\t}}")?;
+            writeln!(out, "\t\t}}")?;
         }
 
         writeln!(out, "\t}}")?;

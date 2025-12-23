@@ -21,7 +21,7 @@ static TEMPLATE: LazyLock<PathBuf> = LazyLock::new(|| {
         .join("template")
 });
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn test_all() {
     let test_files = fs::read_dir(&*TEST_DATA)
         .expect("Failed to read test-data directory")
@@ -31,7 +31,9 @@ async fn test_all() {
         })
         .collect::<Vec<_>>();
 
-    futures::future::join_all(test_files.iter().map(run_test)).await;
+    for input in test_files {
+        run_test(&input).await;
+    }
 }
 
 async fn run_test(input: &PathBuf) {
@@ -40,6 +42,8 @@ async fn run_test(input: &PathBuf) {
         .expect("Missing file stem")
         .to_str()
         .expect("Invalid UTF-8 in filename");
+
+    println!("Running test: {}", name);
 
     let harness = env::temp_dir().join(format!("rust-{}", name));
 

@@ -12,7 +12,6 @@ syn = { version = "2", features = ["parsing"] }
 jsoncodegen = { path = "../core" }
 
 [dev-dependencies]
-futures = "0.3"
 serde_json = "1"
 tokio = { version = "1", features = [
     "rt-multi-thread",

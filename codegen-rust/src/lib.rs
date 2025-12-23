@@ -226,7 +226,7 @@ fn derive_type_name(
             TypeDef::Integer => "isize".into(),
             TypeDef::Float => "f64".into(),
             TypeDef::Boolean => "bool".into(),
-            TypeDef::Null | TypeDef::Unknown => "serde_json::Value".into(),
+            TypeDef::Null | TypeDef::Unknown => "Option<serde_json::Value>".into(),
             TypeDef::Object(_) | TypeDef::Union(_) => {
                 let mut ident = identifier(type_id, name_registry)
                     .map(|ident| ident.to_case(Case::Pascal))

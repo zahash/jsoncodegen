@@ -3,7 +3,10 @@ use jsoncodegen_test_utils::{collect_test_files, copy_dir_all, json_equiv};
 use serde_json::Value;
 use tokio::process::Command;
 
-use std::{env, fs, path::PathBuf};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
 #[tokio::test]
 async fn test_all() {
@@ -12,7 +15,8 @@ async fn test_all() {
     }
 }
 
-async fn run_test(input: &PathBuf) {
+async fn run_test<P: AsRef<Path>>(input: P) {
+    let input = input.as_ref();
     let name = input
         .file_stem()
         .expect("Missing file stem")

@@ -28,6 +28,7 @@ struct MemberVar {
     var_name: String,
     getter_name: String,
     setter_name: String,
+    annotate: bool,
 }
 
 struct Union {
@@ -79,6 +80,8 @@ impl From<serde_json::Value> for Java {
                     };
                     let getter_name = format!("get{}", var_name.to_case(Case::Pascal));
                     let setter_name = format!("set{}", var_name.to_case(Case::Pascal));
+                    let annotate =
+                        decapitalize_java(&var_name.to_case(Case::Pascal)) != original_name;
 
                     vars.push(MemberVar {
                         original_name,
@@ -86,6 +89,7 @@ impl From<serde_json::Value> for Java {
                         var_name,
                         getter_name,
                         setter_name,
+                        annotate,
                     });
                 }
 
@@ -241,6 +245,26 @@ fn is_java_identifier_part(ch: char) -> bool {
         )
 }
 
+/// Java Beans decapitalize rule
+pub fn decapitalize_java(s: &str) -> String {
+    let mut chars = s.chars();
+
+    let Some(first) = chars.next() else {
+        return String::new();
+    };
+
+    match chars.next() {
+        Some(second) if first.is_uppercase() && second.is_uppercase() => s.to_string(),
+        Some(second) => {
+            let mut out = first.to_lowercase().collect::<String>();
+            out.push(second);
+            out.extend(chars);
+            out
+        }
+        None => first.to_lowercase().collect::<String>(),
+    }
+}
+
 fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
     if !java.classes.is_empty() {
         writeln!(out, "import com.fasterxml.jackson.annotation.*;")?;
@@ -271,8 +295,7 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
         }
 
         for member_var in &class.vars {
-            let add_json_property = member_var.original_name != member_var.var_name;
-            if add_json_property {
+            if member_var.annotate {
                 writeln!(out, "\t\t@JsonProperty({:?})", member_var.original_name)?;
             }
             writeln!(
@@ -280,7 +303,7 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
                 "\t\tpublic {} {}() {{ return {}; }}",
                 member_var.type_name, member_var.getter_name, member_var.var_name
             )?;
-            if add_json_property {
+            if member_var.annotate {
                 writeln!(out, "\t\t@JsonProperty({:?})", member_var.original_name)?;
             }
             writeln!(

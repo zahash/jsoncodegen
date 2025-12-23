@@ -13,4 +13,7 @@ jsoncodegen = { path = "../core" }
 
 [dev-dependencies]
 pretty_assertions = "1"
+serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "process", "macros"] }
+
+jsoncodegen-test-utils = { path = "../test-utils" }

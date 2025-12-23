@@ -70,6 +70,9 @@ async fn run_test(input: &PathBuf) {
         .await
         .expect("Failed to run test binary");
 
+    // Clean up after running test
+    let _ = fs::remove_dir_all(&harness);
+
     assert!(
         run_output.status.success(),
         "Run failed for: {name}\n\n--- input.json ---\n{input_content}\n\n--- generated.rs ---\n{generated_code}\n\n--- stdout ---\n{}\n--- stderr ---\n{}",

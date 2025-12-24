@@ -5,6 +5,12 @@ use std::{
 
 use crate::type_graph::{ObjectField, TypeDef, TypeGraph, TypeId};
 
+// TODO: Assign a list of names to each TypeId instead of a single one.
+//      no name in that list mush clash with any other name of any other TypeId.
+// Or pick the name with the least complexity.
+// complexity(name) = [unicode_category(char) for char in name].unique().len()
+// except for empty string (has zero complexity)
+
 #[derive(Debug)]
 pub struct NameRegistry<'type_graph> {
     assigned_names: HashMap<TypeId, &'type_graph str>,

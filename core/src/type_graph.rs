@@ -158,7 +158,7 @@
 //!   - Compact representation of potentially infinite linked list structure
 //! ```
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     fmt::Display,
 };
 
@@ -166,7 +166,7 @@ use jsoncodegen_iota::Iota;
 use serde_json::Value;
 
 use crate::{
-    name_registry::NameRegistry,
+    name_registry::{NamePreference, NameRegistry},
     schema::{Field, FieldType, Schema},
 };
 
@@ -185,7 +185,7 @@ pub struct TypeGraph {
 /// Type definition node. Mirrors FieldType but uses [`TypeId`] references.
 ///
 /// Implements Ord for BTreeMap caching (interning).
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeDef {
     Unknown,
     Null,
@@ -200,7 +200,7 @@ pub enum TypeDef {
 }
 
 /// Named field in object type.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ObjectField {
     pub name: String,
     pub type_id: TypeId,
@@ -254,7 +254,7 @@ fn canonicalize(type_def: &mut TypeDef, nodes: &BTreeMap<TypeId, TypeDef>) {
 #[derive(Default)]
 struct GraphBuilder {
     nodes: BTreeMap<TypeId, TypeDef>,
-    cache: BTreeMap<TypeDef, TypeId>,
+    cache: HashMap<TypeDef, TypeId>,
     iota: Iota,
 }
 
@@ -345,7 +345,7 @@ impl GraphBuilder {
 #[derive(Default)]
 struct TypeReducer {
     reduced_nodes: BTreeMap<TypeId, TypeDef>,
-    cache: BTreeMap<TypeDef, TypeId>,
+    cache: HashMap<TypeDef, TypeId>,
     remaps: Vec<(TypeId, TypeId)>, // original TypeGraph to reduced TypeGraph
     iota: Iota,
 }
@@ -559,7 +559,14 @@ impl<'type_graph> From<&'type_graph TypeGraph> for CanonicalView<'type_graph> {
     fn from(type_graph: &'type_graph TypeGraph) -> Self {
         Self {
             type_graph,
-            name_registry: NameRegistry::build(type_graph),
+            name_registry: NameRegistry::build(
+                type_graph,
+                NamePreference {
+                    root: "root",
+                    filter: |_: &str| true,
+                    compare: |a: &str, b: &str| a.cmp(b),
+                },
+            ),
         }
     }
 }

@@ -1,15 +1,28 @@
 use std::{
+    cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
 };
 
 use crate::type_graph::{ObjectField, TypeDef, TypeGraph, TypeId};
 
-// TODO: Assign a list of names to each TypeId instead of a single one.
-//      no name in that list mush clash with any other name of any other TypeId.
-// Or pick the name with the least complexity.
-// complexity(name) = [unicode_category(char) for char in name].unique().len()
-// except for empty string (has zero complexity)
+pub struct NamePreference<FA, FO> {
+    pub root: &'static str,
+    pub filter: FA,
+    pub compare: FO,
+}
+
+impl<FA, FO> NamePreference<FA, FO> {
+    pub fn apply(&mut self, names: &mut Vec<&str>)
+    where
+        FA: FnMut(&str) -> bool,
+        FO: FnMut(&str, &str) -> Ordering,
+    {
+        names.retain(|name| (self.filter)(name));
+        names.sort_by(|a, b| (self.compare)(a, b));
+        names.dedup();
+    }
+}
 
 #[derive(Debug)]
 pub struct NameRegistry<'type_graph> {
@@ -17,10 +30,20 @@ pub struct NameRegistry<'type_graph> {
 }
 
 impl<'type_graph> NameRegistry<'type_graph> {
-    pub fn build(type_graph: &'type_graph TypeGraph) -> Self {
-        let name_resolver = NameResolver::resolve(type_graph);
+    pub fn build(
+        type_graph: &'type_graph TypeGraph,
+        mut pref: NamePreference<impl FnMut(&str) -> bool, impl FnMut(&str, &str) -> Ordering>,
+    ) -> Self {
+        let mut collected_names = NameCollector::collect(type_graph);
+        collected_names
+            .entry(type_graph.root)
+            .or_default()
+            .insert(0, pref.root);
+        collected_names
+            .values_mut()
+            .for_each(|names| pref.apply(names));
         Self {
-            assigned_names: name_resolver.assigned_names,
+            assigned_names: BipartiteMatcher::solve(collected_names),
         }
     }
 
@@ -29,53 +52,116 @@ impl<'type_graph> NameRegistry<'type_graph> {
     }
 }
 
-#[derive(Debug, Default)]
-struct NameResolver<'type_graph> {
-    names: BTreeMap<TypeId, Vec<&'type_graph str>>,
-    assigned_names: HashMap<TypeId, &'type_graph str>,
+/// Maximum Bipartite Matching.
+struct BipartiteMatcher<'type_graph> {
+    graph: BTreeMap<TypeId, Vec<&'type_graph str>>,
+    matched: HashMap<&'type_graph str, TypeId>,
     visited: HashSet<TypeId>,
 }
 
-impl<'type_graph> NameResolver<'type_graph> {
-    fn resolve(type_graph: &'type_graph TypeGraph) -> Self {
-        let mut name_resolver = Self::default();
-        name_resolver.resolve_type_id(type_graph.root, type_graph);
-        name_resolver.assign_names();
-        name_resolver
+impl<'a> BipartiteMatcher<'a> {
+    fn solve(graph: BTreeMap<TypeId, Vec<&'a str>>) -> HashMap<TypeId, &'a str> {
+        let mut matcher = Self {
+            graph,
+            matched: Default::default(),
+            visited: Default::default(),
+        };
+
+        let type_ids: Vec<TypeId> = matcher.graph.keys().copied().collect();
+
+        // We iterate through all TypeIds (Left nodes) to find a match for them.
+        for type_id in type_ids {
+            // Reset visited for the new search path
+            matcher.visited.clear();
+            matcher.try_match(type_id);
+        }
+
+        let mut result = HashMap::new();
+        for (name, type_id) in &matcher.matched {
+            result.insert(*type_id, *name);
+        }
+        result
     }
 
-    fn resolve_type_id(&mut self, type_id: TypeId, type_graph: &'type_graph TypeGraph) {
+    /// Tries to find a match for `type_id` (TypeId).
+    /// Returns true if `type_id` was successfully matched (possibly by displacing others).
+    fn try_match(&mut self, type_id: TypeId) -> bool {
+        // If we have already visited this node in the current augmenting path search, stop.
+        if self.visited.contains(&type_id) {
+            return false;
+        }
+        self.visited.insert(type_id);
+
+        let Some(candidates) = self.graph.get(&type_id) else {
+            // if the node has no candidates, it cannot be matched.
+            return false;
+        };
+
+        // cloning vector of references (Vec<&str>) is cheap enough
+        for name in candidates.clone() {
+            // We can take `name` if:
+            // 1. It is currently unassigned (None)
+            // 2. OR the current owner (`owner`) can be moved to a different valid name
+            let is_available = match self.matched.get(name) {
+                None => true,
+                Some(&owner) => self.try_match(owner),
+            };
+
+            if is_available {
+                self.matched.insert(name, type_id);
+                return true;
+            }
+        }
+        false
+    }
+}
+
+#[derive(Debug)]
+struct NameCollector<'type_graph> {
+    type_graph: &'type_graph TypeGraph,
+    names: BTreeMap<TypeId, Vec<&'type_graph str>>,
+    visited: HashSet<TypeId>,
+}
+
+impl<'type_graph> NameCollector<'type_graph> {
+    fn collect(type_graph: &'type_graph TypeGraph) -> BTreeMap<TypeId, Vec<&'type_graph str>> {
+        let mut name_collector = Self {
+            type_graph,
+            names: Default::default(),
+            visited: Default::default(),
+        };
+        name_collector.process_type_id(type_graph.root);
+        name_collector.names
+    }
+
+    fn process_type_id(&mut self, type_id: TypeId) {
         if self.visited.contains(&type_id) {
             return;
         }
         self.visited.insert(type_id);
 
-        if let Some(type_def) = type_graph.nodes.get(&type_id) {
+        if let Some(type_def) = self.type_graph.nodes.get(&type_id) {
             match type_def {
                 TypeDef::Object(object_fields) => {
                     for object_field in object_fields {
-                        self.resolve_object_field(object_field, type_graph);
+                        self.process_object_field(object_field);
                     }
                 }
                 TypeDef::Union(inner_type_ids) => {
                     for inner_type_id in inner_type_ids {
-                        self.resolve_type_id(*inner_type_id, type_graph)
+                        self.process_type_id(*inner_type_id)
                     }
                 }
                 TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) => {
-                    self.resolve_type_id(*inner_type_id, type_graph)
+                    self.process_type_id(*inner_type_id)
                 }
                 _ => { /* no-op */ }
             }
         }
     }
 
-    fn resolve_object_field(
-        &mut self,
-        object_field: &'type_graph ObjectField,
-        type_graph: &'type_graph TypeGraph,
-    ) {
-        if let Some(object_field_type_def) = type_graph.nodes.get(&object_field.type_id) {
+    fn process_object_field(&mut self, object_field: &'type_graph ObjectField) {
+        if let Some(object_field_type_def) = self.type_graph.nodes.get(&object_field.type_id) {
             match object_field_type_def {
                 TypeDef::Object(nested_object_fields) => {
                     let names = self.names.entry(object_field.type_id).or_default();
@@ -83,7 +169,7 @@ impl<'type_graph> NameResolver<'type_graph> {
                         names.push(&object_field.name);
                     }
                     for nested_object_field in nested_object_fields {
-                        self.resolve_object_field(nested_object_field, type_graph);
+                        self.process_object_field(nested_object_field);
                     }
                 }
                 TypeDef::Union(inner_type_ids) => {
@@ -92,114 +178,32 @@ impl<'type_graph> NameResolver<'type_graph> {
                         names.push(&object_field.name);
                     }
                     for inner_type_id in inner_type_ids {
-                        self.resolve_type_id(*inner_type_id, type_graph);
+                        self.process_type_id(*inner_type_id);
                     }
                 }
                 TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) => {
-                    let inner_type_id = Self::naming_target(*inner_type_id, type_graph);
+                    let inner_type_id = self.naming_target(*inner_type_id);
                     let names = self.names.entry(inner_type_id).or_default();
                     if !names.contains(&object_field.name.as_str()) {
                         names.push(&object_field.name);
                     }
-                    self.resolve_type_id(inner_type_id, type_graph);
+                    self.process_type_id(inner_type_id);
                 }
                 _ => { /* no-op */ }
             }
         }
     }
 
-    fn naming_target(mut type_id: TypeId, type_graph: &TypeGraph) -> TypeId {
+    fn naming_target(&self, mut type_id: TypeId) -> TypeId {
         let mut visited = vec![];
         while !visited.contains(&type_id) {
             visited.push(type_id);
-            if let Some(type_def) = type_graph.nodes.get(&type_id) {
+            if let Some(type_def) = self.type_graph.nodes.get(&type_id) {
                 if let TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) = type_def {
                     type_id = *inner_type_id;
                 }
             }
         }
         type_id
-    }
-
-    /// Performs maximum assignment of unique names to ids using a DFS-based
-    /// augmenting-path algorithm (Kuhn). Result is stored in `self.assigned_names`.
-    /// TODO: use network max flow algorithms like ford-fulkerson or edmonds-karp
-    /// for maximum bipartite matching
-    fn assign_names(&mut self) {
-        // Deterministic left side order (ids)
-        let ids_order: Vec<usize> = self.names.keys().copied().collect();
-        let n_ids = ids_order.len();
-
-        // Map each unique &'type_graph str to an index on the "right" side
-        let mut name_to_index: HashMap<&'type_graph str, usize> = HashMap::new();
-        let mut unique_names: Vec<&'type_graph str> = Vec::new();
-
-        // adjacency: for each left-index (position in ids_order) store list of right-indexes
-        let mut id_to_name_indices: Vec<Vec<usize>> = vec![Vec::new(); n_ids];
-
-        for (left_pos, id) in ids_order.iter().enumerate() {
-            if let Some(candidates) = self.names.get(id) {
-                let mut seen_local: HashSet<&'type_graph str> = HashSet::new();
-                for &name in candidates {
-                    // dedupe duplicates inside the same id's list
-                    if !seen_local.insert(name) {
-                        continue;
-                    }
-                    let idx = *name_to_index.entry(name).or_insert_with(|| {
-                        unique_names.push(name);
-                        unique_names.len() - 1
-                    });
-                    id_to_name_indices[left_pos].push(idx);
-                }
-            }
-        }
-
-        let n_names = unique_names.len();
-        // For each name (right node) store Option<left_pos> it's matched to
-        let mut name_matched_to: Vec<Option<usize>> = vec![None; n_names];
-
-        // recursive DFS function to find augmenting path for left node `u`
-        fn try_assign(
-            u: usize,
-            id_to_name_indices: &Vec<Vec<usize>>,
-            visited: &mut Vec<bool>,
-            name_matched_to: &mut Vec<Option<usize>>,
-        ) -> bool {
-            for &name_idx in &id_to_name_indices[u] {
-                if visited[name_idx] {
-                    continue;
-                }
-                visited[name_idx] = true;
-                if name_matched_to[name_idx].is_none()
-                    || try_assign(
-                        name_matched_to[name_idx].unwrap(), // TODO: avoid unwrap
-                        id_to_name_indices,
-                        visited,
-                        name_matched_to,
-                    )
-                {
-                    // match name -> u
-                    name_matched_to[name_idx] = Some(u);
-                    return true;
-                }
-            }
-            false
-        }
-
-        // Try to find a match for each left node
-        for u in 0..n_ids {
-            let mut visited = vec![false; n_names];
-            try_assign(u, &id_to_name_indices, &mut visited, &mut name_matched_to);
-        }
-
-        // Build assigned_names map from matches
-        self.assigned_names.clear();
-        for (name_idx, opt_left_pos) in name_matched_to.into_iter().enumerate() {
-            if let Some(left_pos) = opt_left_pos {
-                let id = ids_order[left_pos];
-                let name = unique_names[name_idx];
-                self.assigned_names.insert(id, name);
-            }
-        }
     }
 }

@@ -2,7 +2,7 @@ use std::io;
 
 use convert_case::{Case, Casing};
 use jsoncodegen::{
-    name_registry::NameRegistry,
+    name_registry::{NamePreference, NameRegistry},
     type_graph::{TypeDef, TypeGraph, TypeId},
 };
 use unicode_general_category::{GeneralCategory, get_general_category};
@@ -45,7 +45,14 @@ struct UnionMemberVar {
 impl From<serde_json::Value> for Java {
     fn from(json: serde_json::Value) -> Self {
         let type_graph = TypeGraph::from(json);
-        let name_registry = NameRegistry::build(&type_graph);
+        let name_registry = NameRegistry::build(
+            &type_graph,
+            NamePreference {
+                root: "root",
+                filter: |name: &str| is_java_identifier(name),
+                compare: |a: &str, b: &str| a.cmp(b),
+            },
+        );
 
         let mut root = String::from("Object");
         let mut classes = vec![];
@@ -60,7 +67,7 @@ impl From<serde_json::Value> for Java {
                     TypeDef::Array(inner_type_id) => {
                         root = format!(
                             "java.util.ArrayList<{}>",
-                            derive_type_name(*inner_type_id, &type_graph, &name_registry,)
+                            derive_type_name(*inner_type_id, &type_graph, &name_registry)
                         )
                     }
                     _ => { /* no-op */ }
@@ -68,7 +75,10 @@ impl From<serde_json::Value> for Java {
             }
 
             if let TypeDef::Object(object_fields) = type_def {
-                let class_name = derive_type_name(*type_id, &type_graph, &name_registry);
+                let class_name = name_registry
+                    .assigned_name(*type_id)
+                    .map(|ident| ident.to_case(Case::Pascal))
+                    .unwrap_or_else(|| format!("Type{}", type_id));
 
                 let mut vars: Vec<MemberVar> = Vec::with_capacity(object_fields.len());
                 let mut needs_custom_serializer_deserializer = false;
@@ -113,7 +123,10 @@ impl From<serde_json::Value> for Java {
             }
 
             if let TypeDef::Union(inner_type_ids) = type_def {
-                let class_name = derive_type_name(*type_id, &type_graph, &name_registry);
+                let class_name = name_registry
+                    .assigned_name(*type_id)
+                    .map(|ident| ident.to_case(Case::Pascal))
+                    .unwrap_or_else(|| format!("Type{}", type_id));
 
                 let mut vars: Vec<UnionMemberVar> = Vec::with_capacity(inner_type_ids.len());
                 for inner_type_id in inner_type_ids {
@@ -126,16 +139,20 @@ impl From<serde_json::Value> for Java {
                             TypeDef::Boolean => "boolVal".into(),
                             TypeDef::Null => "nullVal".into(),
                             TypeDef::Unknown => "objVal".into(),
-                            TypeDef::Object(_) => identifier(*inner_type_id, &name_registry)
+                            TypeDef::Object(_) => name_registry
+                                .assigned_name(*inner_type_id)
                                 .map(|ident| ident.to_case(Case::Camel))
                                 .unwrap_or_else(|| format!("clazz{}", inner_type_id)),
-                            TypeDef::Union(_) => identifier(*inner_type_id, &name_registry)
+                            TypeDef::Union(_) => name_registry
+                                .assigned_name(*inner_type_id)
                                 .map(|ident| ident.to_case(Case::Camel))
                                 .unwrap_or_else(|| format!("union{}", inner_type_id)),
-                            TypeDef::Array(_) => identifier(*inner_type_id, &name_registry)
+                            TypeDef::Array(_) => name_registry
+                                .assigned_name(*inner_type_id)
                                 .map(|ident| ident.to_case(Case::Camel))
                                 .unwrap_or_else(|| format!("arr{}", inner_type_id)),
-                            TypeDef::Optional(_) => identifier(*inner_type_id, &name_registry)
+                            TypeDef::Optional(_) => name_registry
+                                .assigned_name(*inner_type_id)
                                 .map(|ident| ident.to_case(Case::Camel))
                                 .unwrap_or_else(|| format!("opt{}", inner_type_id)),
                         },
@@ -163,19 +180,6 @@ impl From<serde_json::Value> for Java {
     }
 }
 
-fn identifier<'type_graph, 'name_registry>(
-    type_id: TypeId,
-    name_registry: &'name_registry NameRegistry<'type_graph>,
-) -> Option<&'type_graph str>
-where
-    'name_registry: 'type_graph,
-{
-    match name_registry.assigned_name(type_id) {
-        Some(name) if is_java_identifier(name) => Some(name),
-        _ => None,
-    }
-}
-
 fn derive_type_name(
     type_id: TypeId,
     type_graph: &TypeGraph,
@@ -188,7 +192,8 @@ fn derive_type_name(
             TypeDef::Float => "Double".into(),
             TypeDef::Boolean => "Boolean".into(),
             TypeDef::Null | TypeDef::Unknown => "Object".into(),
-            TypeDef::Object(_) | TypeDef::Union(_) => identifier(type_id, name_registry)
+            TypeDef::Object(_) | TypeDef::Union(_) => name_registry
+                .assigned_name(type_id)
                 .map(|ident| ident.to_case(Case::Pascal))
                 .unwrap_or_else(|| format!("Type{}", type_id)),
             TypeDef::Array(inner_type_id) => format!(

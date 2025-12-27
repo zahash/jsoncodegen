@@ -2,7 +2,7 @@ use std::{io, iter};
 
 use convert_case::{Case, Casing};
 use jsoncodegen::{
-    name_registry::NameRegistry,
+    name_registry::{NamePreference, NameRegistry},
     type_graph::{TypeDef, TypeGraph, TypeId},
 };
 
@@ -40,7 +40,14 @@ struct EnumVariant {
 impl From<serde_json::Value> for Rust {
     fn from(json: serde_json::Value) -> Self {
         let type_graph = TypeGraph::from(json);
-        let name_registry = NameRegistry::build(&type_graph);
+        let name_registry = NameRegistry::build(
+            &type_graph,
+            NamePreference {
+                root: "root",
+                filter: |name: &str| is_rust_identifier(name),
+                compare: |a: &str, b: &str| a.cmp(b),
+            },
+        );
         let back_edges = back_edges(&type_graph);
 
         let mut root = String::from("serde_json::Value");
@@ -76,7 +83,8 @@ impl From<serde_json::Value> for Rust {
             }
 
             if let TypeDef::Object(object_fields) = type_def {
-                let struct_name = identifier(*type_id, &name_registry)
+                let struct_name = name_registry
+                    .assigned_name(*type_id)
                     .map(|ident| ident.to_case(Case::Pascal))
                     .unwrap_or_else(|| format!("Type{}", type_id));
 
@@ -109,7 +117,8 @@ impl From<serde_json::Value> for Rust {
             }
 
             if let TypeDef::Union(inner_type_ids) = type_def {
-                let enum_name = identifier(*type_id, &name_registry)
+                let enum_name = name_registry
+                    .assigned_name(*type_id)
                     .map(|ident| ident.to_case(Case::Pascal))
                     .unwrap_or_else(|| format!("Type{}", type_id));
 
@@ -130,16 +139,20 @@ impl From<serde_json::Value> for Rust {
                             TypeDef::Boolean => "Bool".into(),
                             TypeDef::Null => "Null".into(),
                             TypeDef::Unknown => "Unknown".into(),
-                            TypeDef::Object(_) => identifier(*inner_type_id, &name_registry)
+                            TypeDef::Object(_) => name_registry
+                                .assigned_name(*inner_type_id)
                                 .map(|ident| ident.to_case(Case::Snake))
                                 .unwrap_or_else(|| format!("Object{}", inner_type_id)),
-                            TypeDef::Union(_) => identifier(*inner_type_id, &name_registry)
+                            TypeDef::Union(_) => name_registry
+                                .assigned_name(*inner_type_id)
                                 .map(|ident| ident.to_case(Case::Snake))
                                 .unwrap_or_else(|| format!("Union{}", inner_type_id)),
-                            TypeDef::Array(_) => identifier(*inner_type_id, &name_registry)
+                            TypeDef::Array(_) => name_registry
+                                .assigned_name(*inner_type_id)
                                 .map(|ident| ident.to_case(Case::Snake))
                                 .unwrap_or_else(|| format!("Array{}", inner_type_id)),
-                            TypeDef::Optional(_) => identifier(*inner_type_id, &name_registry)
+                            TypeDef::Optional(_) => name_registry
+                                .assigned_name(*inner_type_id)
                                 .map(|ident| ident.to_case(Case::Snake))
                                 .unwrap_or_else(|| format!("Optional{}", inner_type_id)),
                         },
@@ -200,19 +213,6 @@ fn back_edges(type_graph: &TypeGraph) -> Vec<(TypeId, TypeId)> {
     back_edges
 }
 
-fn identifier<'type_graph, 'name_registry>(
-    type_id: TypeId,
-    name_registry: &'name_registry NameRegistry<'type_graph>,
-) -> Option<&'type_graph str>
-where
-    'name_registry: 'type_graph,
-{
-    match name_registry.assigned_name(type_id) {
-        Some(name) if is_rust_identifier(name) => Some(name),
-        _ => None,
-    }
-}
-
 fn derive_type_name(
     type_id: TypeId,
     type_graph: &TypeGraph,
@@ -228,7 +228,8 @@ fn derive_type_name(
             TypeDef::Boolean => "bool".into(),
             TypeDef::Null | TypeDef::Unknown => "Option<serde_json::Value>".into(),
             TypeDef::Object(_) | TypeDef::Union(_) => {
-                let mut ident = identifier(type_id, name_registry)
+                let mut ident = name_registry
+                    .assigned_name(type_id)
                     .map(|ident| ident.to_case(Case::Pascal))
                     .unwrap_or_else(|| format!("Type{}", type_id));
                 if back_edges.contains(&(parent_type_id, type_id)) {

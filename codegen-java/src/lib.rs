@@ -48,7 +48,6 @@ impl From<serde_json::Value> for Java {
         let name_registry = NameRegistry::build(
             &type_graph,
             NamePreference {
-                root: "root",
                 filter: |name: &str| is_java_identifier(name),
                 compare: |a: &str, b: &str| a.cmp(b),
             },
@@ -58,6 +57,16 @@ impl From<serde_json::Value> for Java {
         let mut classes = vec![];
         let mut unions = vec![];
 
+        // TODO: instead of iterating through type_graph.nodes
+        // and processing TypeDef::Object and TypeDef::Union,
+        // do a bfs traversal (starting from root type_id)
+        // of all TypeIds that are either
+        // TypeDef::Object or TypeDef::Union
+        // This way, the root struct will always be on top
+        // and determining the root type name is much simpler
+        //
+        // TODO: to avoid case-insensitive name clash with ROOT,
+        // try to inline the root type in the top level JsonCodeGen
         for (type_id, type_def) in &type_graph.nodes {
             if *type_id == type_graph.root {
                 match type_def {

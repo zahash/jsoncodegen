@@ -43,7 +43,6 @@ impl From<serde_json::Value> for Rust {
         let name_registry = NameRegistry::build(
             &type_graph,
             NamePreference {
-                root: "root",
                 filter: |name: &str| is_rust_identifier(name),
                 compare: |a: &str, b: &str| a.cmp(b),
             },

@@ -562,7 +562,6 @@ impl<'type_graph> From<&'type_graph TypeGraph> for CanonicalView<'type_graph> {
             name_registry: NameRegistry::build(
                 type_graph,
                 NamePreference {
-                    root: "root",
                     filter: |_: &str| true,
                     compare: |a: &str, b: &str| a.cmp(b),
                 },

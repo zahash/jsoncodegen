@@ -7,7 +7,6 @@ use std::{
 use crate::type_graph::{ObjectField, TypeDef, TypeGraph, TypeId};
 
 pub struct NamePreference<FA, FO> {
-    pub root: &'static str,
     pub filter: FA,
     pub compare: FO,
 }
@@ -35,10 +34,6 @@ impl<'type_graph> NameRegistry<'type_graph> {
         mut pref: NamePreference<impl FnMut(&str) -> bool, impl FnMut(&str, &str) -> Ordering>,
     ) -> Self {
         let mut collected_names = NameCollector::collect(type_graph);
-        collected_names
-            .entry(type_graph.root)
-            .or_default()
-            .insert(0, pref.root);
         collected_names
             .values_mut()
             .for_each(|names| pref.apply(names));

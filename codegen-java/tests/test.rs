@@ -1,3 +1,4 @@
+use futures::StreamExt;
 use jsoncodegen_java::codegen;
 use jsoncodegen_test_utils::{collect_test_files, copy_dir_all, json_equiv};
 use serde_json::Value;
@@ -19,9 +20,16 @@ static M2: LazyLock<PathBuf> = LazyLock::new(|| {
 
 #[tokio::test]
 async fn test_all() {
-    for input in collect_test_files() {
-        run_test(&input).await;
-    }
+    let n_parallel = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1);
+
+    futures::stream::iter(collect_test_files().into_iter().map(|input| async move {
+        run_test(input).await;
+    }))
+    .buffer_unordered(n_parallel)
+    .for_each(|_| async {})
+    .await;
 }
 
 async fn run_test<P: AsRef<Path>>(input: P) {

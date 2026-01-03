@@ -5,10 +5,8 @@ members = [
     "codegen-java",
     "codegen-rust",
     "core",
-    "dispatch",
     "iota",
     "test-utils",
-    "web",
 ]
 
 [workspace.package]
@@ -32,8 +30,3 @@ strip = true
 
 # cargo build -p jsoncodegen-cli --profile cli
 # cargo build -p jsoncodegen-java --profile wasm --target wasm32-wasip1
-
-# cargo build -p jsoncodegen-web --profile wasm--target wasm32-unknown-unknown
-
-# cargo install wasm-bindgen-cli
-# wasm-bindgen ./target/wasm32-unknown-unknown/web/jsoncodegen_web.wasm --out-dir ./pkg --target web

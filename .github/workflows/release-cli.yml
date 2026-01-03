@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-linux-x86_64:
-    name: Build (Linux)
+    name: Build (Linux x86_64)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

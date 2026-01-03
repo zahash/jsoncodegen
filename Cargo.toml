@@ -12,7 +12,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.7.1"
+version = "0.7.2"
 edition = "2024"
 
 [profile.wasm]
@@ -20,6 +20,7 @@ inherits = "release"
 opt-level = "z"     # Optimize for size
 lto = true          # Enable Link Time Optimization (LTO)
 codegen-units = 1   # Forces the compiler to use a single code generation unit to improve optimizations
+strip = true        # Strips symbols
 panic = "abort"     # Remove panic support, reducing code size
 
 [profile.cli]
@@ -27,6 +28,7 @@ inherits = "release"
 opt-level = "z"
 lto = true
 codegen-units = 1
+strip = true
 
 # cargo build -p jsoncodegen-cli --profile cli
 # cargo build -p jsoncodegen-java --profile wasm --target wasm32-wasip1

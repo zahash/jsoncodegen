@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::{
     env,
     error::Error,
@@ -10,7 +10,27 @@ use wasmtime::{Engine, Linker, Module, Store};
 use wasmtime_wasi::WasiCtxBuilder;
 
 #[derive(Parser, Debug)]
-struct JSONCodeGen {
+#[command(about = "JSON code generator")]
+struct Args {
+    #[arg(long, env("JSONCODEGEN_RUNTIME"), default_value_os_t = default_runtime_dir())]
+    runtime_dir: PathBuf,
+
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Generate code from a JSON file
+    Gen(GenArgs),
+
+    /// Update generated artifacts
+    #[command(subcommand)]
+    Update(UpdateArgs),
+}
+
+#[derive(Parser, Debug)]
+struct GenArgs {
     /// input json filepath
     #[arg(short, long)]
     filepath: String,
@@ -22,64 +42,75 @@ struct JSONCodeGen {
     /// Optional output file; if omitted, prints to stdout
     #[arg(short, long)]
     output: Option<PathBuf>,
+}
 
-    #[arg(long, env("JSONCODEGEN_RUNTIME"))]
-    runtime_dir: Option<PathBuf>,
+#[derive(Subcommand, Debug)]
+enum UpdateArgs {
+    /// Update a specific language
+    Lang {
+        /// Language to update
+        lang: String,
+    },
+
+    /// Update all languages
+    All,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let args = JSONCodeGen::parse();
+    let Args {
+        runtime_dir,
+        command,
+    } = Args::parse();
 
-    let runtime_dir = args
-        .runtime_dir
-        .or_else(|| {
-            env::home_dir().map(|mut home| {
-                home.push(".jsoncodegen");
-                home
-            })
-        })
-        .ok_or("default runtime directory unavailable. please specify an alternate manually.")?;
+    match command {
+        Commands::Gen(gen_args) => {
+            let codegen_wasm_path = runtime_dir.join(lang_2_wasm_filename(&gen_args.lang));
 
-    let codegen_wasm_path =
-        runtime_dir.join(format!("jsoncodegen-{}-wasm32-wasip1.wasm", args.lang));
-
-    // Check if WASM binary exists locally, if not download it
-    if !codegen_wasm_path.is_file() {
-        eprintln!("WASM binary not found locally");
-        fetch_latest_wasm_release(&args.lang, &codegen_wasm_path)?;
-    }
-
-    let ctx = {
-        let mut builder = WasiCtxBuilder::new();
-
-        builder
-            .stdin({
-                let file = File::open(args.filepath)?;
-                wasmtime_wasi::cli::InputFile::new(file)
-            })
-            .stderr(wasmtime_wasi::cli::stderr());
-
-        match args.output {
-            Some(out_path) => {
-                let file = File::create(out_path)?;
-                builder.stdout(wasmtime_wasi::cli::OutputFile::new(file))
+            // Check if WASM binary exists locally, if not download it
+            if !codegen_wasm_path.is_file() {
+                eprintln!("WASM binary not found locally");
+                fetch_latest_wasm_release(&gen_args.lang, &codegen_wasm_path)?;
             }
-            None => builder.stdout(wasmtime_wasi::cli::stdout()),
-        };
 
-        builder.build_p1()
-    };
+            let ctx = {
+                let mut builder = WasiCtxBuilder::new();
 
-    let engine = Engine::default();
-    let mut linker = Linker::<wasmtime_wasi::p1::WasiP1Ctx>::new(&engine);
-    wasmtime_wasi::p1::add_to_linker_sync(&mut linker, |s| s)?;
+                builder
+                    .stdin({
+                        let file = File::open(gen_args.filepath)?;
+                        wasmtime_wasi::cli::InputFile::new(file)
+                    })
+                    .stderr(wasmtime_wasi::cli::stderr());
 
-    let module = Module::from_file(&engine, codegen_wasm_path)?;
-    let mut store = Store::new(&engine, ctx);
-    let instance = linker.instantiate(&mut store, &module)?;
+                match gen_args.output {
+                    Some(out_path) => {
+                        let file = File::create(out_path)?;
+                        builder.stdout(wasmtime_wasi::cli::OutputFile::new(file))
+                    }
+                    None => builder.stdout(wasmtime_wasi::cli::stdout()),
+                };
 
-    let start = instance.get_typed_func::<(), ()>(&mut store, "_start")?;
-    start.call(&mut store, ())?;
+                builder.build_p1()
+            };
+
+            let engine = Engine::default();
+            let mut linker = Linker::<wasmtime_wasi::p1::WasiP1Ctx>::new(&engine);
+            wasmtime_wasi::p1::add_to_linker_sync(&mut linker, |s| s)?;
+
+            let module = Module::from_file(&engine, codegen_wasm_path)?;
+            let mut store = Store::new(&engine, ctx);
+            let instance = linker.instantiate(&mut store, &module)?;
+
+            let start = instance.get_typed_func::<(), ()>(&mut store, "_start")?;
+            start.call(&mut store, ())?;
+        }
+        Commands::Update(update_args) => match update_args {
+            UpdateArgs::Lang { lang } => {
+                fetch_latest_wasm_release(&lang, &runtime_dir.join(lang_2_wasm_filename(&lang)))?
+            }
+            UpdateArgs::All => unimplemented!(),
+        },
+    }
 
     Ok(())
 }
@@ -91,10 +122,7 @@ fn fetch_latest_wasm_release(lang: &str, dest_path: &PathBuf) -> Result<(), Box<
         .user_agent("jsoncodegen")
         .build()?;
 
-    let url = format!(
-        "https://zahash.github.io/jsoncodegen-{}-wasm32-wasip1.wasm",
-        lang
-    );
+    let url = format!("https://zahash.github.io/{}", lang_2_wasm_filename(lang));
 
     let response = client.get(&url).send()?;
     if !response.status().is_success() {
@@ -111,4 +139,16 @@ fn fetch_latest_wasm_release(lang: &str, dest_path: &PathBuf) -> Result<(), Box<
 
     eprintln!("Successfully downloaded to: {}", dest_path.display());
     Ok(())
+}
+
+fn default_runtime_dir() -> PathBuf {
+    let mut runtime_dir = env::home_dir()
+        .or_else(|| env::current_dir().ok())
+        .unwrap_or_default();
+    runtime_dir.push(".jsoncodegen");
+    runtime_dir
+}
+
+fn lang_2_wasm_filename(lang: &str) -> String {
+    format!("jsoncodegen-{}-wasm32-wasip1.wasm", lang)
 }

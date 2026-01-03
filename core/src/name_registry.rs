@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     fmt::Debug,
 };
 
@@ -25,7 +25,7 @@ impl<FA, FO> NamePreference<FA, FO> {
 
 #[derive(Debug)]
 pub struct NameRegistry<'type_graph> {
-    assigned_names: HashMap<TypeId, &'type_graph str>,
+    assigned_names: BTreeMap<TypeId, &'type_graph str>,
 }
 
 impl<'type_graph> NameRegistry<'type_graph> {
@@ -50,12 +50,12 @@ impl<'type_graph> NameRegistry<'type_graph> {
 /// Maximum Bipartite Matching.
 struct BipartiteMatcher<'type_graph> {
     graph: BTreeMap<TypeId, Vec<&'type_graph str>>,
-    matched: HashMap<&'type_graph str, TypeId>,
-    visited: HashSet<TypeId>,
+    matched: BTreeMap<&'type_graph str, TypeId>,
+    visited: BTreeSet<TypeId>,
 }
 
 impl<'a> BipartiteMatcher<'a> {
-    fn solve(graph: BTreeMap<TypeId, Vec<&'a str>>) -> HashMap<TypeId, &'a str> {
+    fn solve(graph: BTreeMap<TypeId, Vec<&'a str>>) -> BTreeMap<TypeId, &'a str> {
         let mut matcher = Self {
             graph,
             matched: Default::default(),
@@ -71,7 +71,7 @@ impl<'a> BipartiteMatcher<'a> {
             matcher.try_match(type_id);
         }
 
-        let mut result = HashMap::new();
+        let mut result = BTreeMap::new();
         for (name, type_id) in &matcher.matched {
             result.insert(*type_id, *name);
         }
@@ -115,7 +115,7 @@ impl<'a> BipartiteMatcher<'a> {
 struct NameCollector<'type_graph> {
     type_graph: &'type_graph TypeGraph,
     names: BTreeMap<TypeId, Vec<&'type_graph str>>,
-    visited: HashSet<TypeId>,
+    visited: BTreeSet<TypeId>,
 }
 
 impl<'type_graph> NameCollector<'type_graph> {

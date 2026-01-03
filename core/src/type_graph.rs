@@ -158,7 +158,7 @@
 //!   - Compact representation of potentially infinite linked list structure
 //! ```
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     fmt::Display,
 };
 
@@ -185,7 +185,7 @@ pub struct TypeGraph {
 /// Type definition node. Mirrors FieldType but uses [`TypeId`] references.
 ///
 /// Implements Ord for BTreeMap caching (interning).
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TypeDef {
     Unknown,
     Null,
@@ -200,7 +200,7 @@ pub enum TypeDef {
 }
 
 /// Named field in object type.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectField {
     pub name: String,
     pub type_id: TypeId,
@@ -254,7 +254,7 @@ fn canonicalize(type_def: &mut TypeDef, nodes: &BTreeMap<TypeId, TypeDef>) {
 #[derive(Default)]
 struct GraphBuilder {
     nodes: BTreeMap<TypeId, TypeDef>,
-    cache: HashMap<TypeDef, TypeId>,
+    cache: BTreeMap<TypeDef, TypeId>,
     iota: Iota,
 }
 
@@ -345,7 +345,7 @@ impl GraphBuilder {
 #[derive(Default)]
 struct TypeReducer {
     reduced_nodes: BTreeMap<TypeId, TypeDef>,
-    cache: HashMap<TypeDef, TypeId>,
+    cache: BTreeMap<TypeDef, TypeId>,
     remaps: Vec<(TypeId, TypeId)>, // original TypeGraph to reduced TypeGraph
     iota: Iota,
 }
@@ -576,7 +576,7 @@ impl<'type_graph> CanonicalView<'type_graph> {
         &self,
         f: &mut std::fmt::Formatter<'_>,
         type_id: TypeId,
-        visited: &mut HashSet<TypeId>,
+        visited: &mut BTreeSet<TypeId>,
     ) -> std::fmt::Result {
         if visited.contains(&type_id) {
             return match self.name_registry.assigned_name(type_id) {
@@ -642,7 +642,7 @@ impl Display for CanonicalView<'_> {
         }?;
 
         // Then print the body of the root type
-        let mut visited = HashSet::new();
+        let mut visited = BTreeSet::new();
         self.fmt_type(f, self.type_graph.root, &mut visited)
     }
 }

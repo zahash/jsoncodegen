@@ -33,7 +33,7 @@ enum Commands {
 struct GenArgs {
     /// input json filepath
     #[arg(short, long)]
-    filepath: String,
+    filepath: PathBuf,
 
     /// codegen language
     #[arg(long)]

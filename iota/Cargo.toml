@@ -2,4 +2,7 @@
 name = "jsoncodegen-iota"
 version.workspace = true
 edition.workspace = true
+repository.workspace = true
+license.workspace = true
+authors.workspace = true
 publish = false

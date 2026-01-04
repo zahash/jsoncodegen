@@ -11,8 +11,11 @@ members = [
 ]
 
 [workspace.package]
-version = "0.7.3"
+version = "0.7.4"
 edition = "2024"
+repository = "https://github.com/zahash/jsoncodegen/"
+license = "MIT"
+authors = ["zahash <zahash.z@gmail.com>"]
 
 [profile.wasm]
 inherits = "release"

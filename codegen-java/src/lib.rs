@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{BTreeSet, VecDeque},
     io,
 };
 
@@ -64,7 +64,7 @@ impl From<serde_json::Value> for Java {
         // try to inline the root type in the top level JsonCodeGen
         let mut queue = VecDeque::new();
         queue.push_back(type_graph.root);
-        let mut visited = HashSet::new();
+        let mut visited = BTreeSet::new();
 
         while let Some(type_id) = queue.pop_front() {
             if visited.contains(&type_id) {

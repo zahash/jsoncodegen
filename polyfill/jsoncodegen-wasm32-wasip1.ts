@@ -30,7 +30,7 @@ export class WasmPlugin {
    * * @param url - The URL of the .wasm file.
    * @returns A promise that resolves to a generic WasmPlugin.
    */
-  static async load(url: string): Promise<WasmPlugin> {
+  static async load(url: string | URL): Promise<WasmPlugin> {
     const response = fetch(url);
 
     try {
@@ -121,8 +121,10 @@ export class PluginManager {
  * Not exported to the consumer.
  */
 class WasiExit extends Error {
-  constructor(public code: number) {
+  public code: number;
+  constructor(code: number) {
     super(`WASI Exit: ${code}`);
+    this.code = code;
   }
 }
 

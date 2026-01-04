@@ -1,4 +1,7 @@
-use std::io;
+use std::{
+    collections::{HashSet, VecDeque},
+    io,
+};
 
 use convert_case::{Case, Casing};
 use jsoncodegen::{
@@ -57,21 +60,26 @@ impl From<serde_json::Value> for Java {
         let mut classes = vec![];
         let mut unions = vec![];
 
-        // TODO: instead of iterating through type_graph.nodes
-        // and processing TypeDef::Object and TypeDef::Union,
-        // do a bfs traversal (starting from root type_id)
-        // of all TypeIds that are either
-        // TypeDef::Object or TypeDef::Union
-        // This way, the root struct will always be on top
-        // and determining the root type name is much simpler
-        //
         // TODO: to avoid case-insensitive name clash with ROOT,
         // try to inline the root type in the top level JsonCodeGen
-        for (type_id, type_def) in &type_graph.nodes {
-            if *type_id == type_graph.root {
+        let mut queue = VecDeque::new();
+        queue.push_back(type_graph.root);
+        let mut visited = HashSet::new();
+
+        while let Some(type_id) = queue.pop_front() {
+            if visited.contains(&type_id) {
+                continue;
+            }
+            visited.insert(type_id);
+
+            let Some(type_def) = type_graph.nodes.get(&type_id) else {
+                continue;
+            };
+
+            if type_id == type_graph.root {
                 match type_def {
                     TypeDef::Object(_) => {
-                        root = derive_type_name(*type_id, &type_graph, &name_registry)
+                        root = derive_type_name(type_id, &type_graph, &name_registry)
                     }
                     TypeDef::Array(inner_type_id) => {
                         root = format!(
@@ -83,101 +91,111 @@ impl From<serde_json::Value> for Java {
                 };
             }
 
-            if let TypeDef::Object(object_fields) = type_def {
-                let class_name = name_registry
-                    .assigned_name(*type_id)
-                    .map(|ident| ident.to_case(Case::Pascal))
-                    .unwrap_or_else(|| format!("Type{}", type_id));
+            match type_def {
+                TypeDef::Object(object_fields) => {
+                    let class_name = name_registry
+                        .assigned_name(type_id)
+                        .map(|ident| ident.to_case(Case::Pascal))
+                        .unwrap_or_else(|| format!("Type{}", type_id));
 
-                let mut vars: Vec<MemberVar> = Vec::with_capacity(object_fields.len());
-                let mut needs_custom_serializer_deserializer = false;
-                for (idx, object_field) in object_fields.iter().enumerate() {
-                    let original_name = object_field.name.clone();
-                    if original_name.is_empty() {
-                        needs_custom_serializer_deserializer = true;
+                    let mut vars: Vec<MemberVar> = Vec::with_capacity(object_fields.len());
+                    let mut needs_custom_serializer_deserializer = false;
+                    for (idx, object_field) in object_fields.iter().enumerate() {
+                        queue.push_back(object_field.type_id);
+
+                        let original_name = object_field.name.clone();
+                        if original_name.is_empty() {
+                            needs_custom_serializer_deserializer = true;
+                        }
+                        let type_name =
+                            derive_type_name(object_field.type_id, &type_graph, &name_registry);
+                        let var_name = match is_java_identifier(&object_field.name) {
+                            true => object_field.name.to_case(Case::Camel),
+                            false => format!("var{}", idx),
+                        };
+                        let getter_name = format!("get{}", var_name.to_case(Case::Pascal));
+                        let setter_name = format!("set{}", var_name.to_case(Case::Pascal));
+                        let annotate =
+                            decapitalize_java(&var_name.to_case(Case::Pascal)) != original_name;
+
+                        vars.push(MemberVar {
+                            original_name,
+                            type_name,
+                            var_name,
+                            getter_name,
+                            setter_name,
+                            annotate,
+                        });
                     }
-                    let type_name =
-                        derive_type_name(object_field.type_id, &type_graph, &name_registry);
-                    let var_name = match is_java_identifier(&object_field.name) {
-                        true => object_field.name.to_case(Case::Camel),
-                        false => format!("var{}", idx),
-                    };
-                    let getter_name = format!("get{}", var_name.to_case(Case::Pascal));
-                    let setter_name = format!("set{}", var_name.to_case(Case::Pascal));
-                    let annotate =
-                        decapitalize_java(&var_name.to_case(Case::Pascal)) != original_name;
 
-                    vars.push(MemberVar {
-                        original_name,
-                        type_name,
-                        var_name,
-                        getter_name,
-                        setter_name,
-                        annotate,
+                    // don't need to annotate if custom serializer/deserializer is used
+                    if needs_custom_serializer_deserializer {
+                        for var in &mut vars {
+                            var.annotate = false;
+                        }
+                    }
+
+                    classes.push(Class {
+                        name: class_name,
+                        vars,
+                        needs_custom_serializer_deserializer,
                     });
                 }
+                TypeDef::Union(inner_type_ids) => {
+                    let class_name = name_registry
+                        .assigned_name(type_id)
+                        .map(|ident| ident.to_case(Case::Pascal))
+                        .unwrap_or_else(|| format!("Type{}", type_id));
 
-                // don't need to annotate if custom serializer/deserializer is used
-                if needs_custom_serializer_deserializer {
-                    for var in &mut vars {
-                        var.annotate = false;
+                    let mut vars: Vec<UnionMemberVar> = Vec::with_capacity(inner_type_ids.len());
+                    for inner_type_id in inner_type_ids {
+                        queue.push_back(*inner_type_id);
+
+                        let type_name =
+                            derive_type_name(*inner_type_id, &type_graph, &name_registry);
+                        let var_name = match type_graph.nodes.get(inner_type_id) {
+                            Some(inner_type_def) => match inner_type_def {
+                                TypeDef::String => "strVal".into(),
+                                TypeDef::Integer => "intVal".into(),
+                                TypeDef::Float => "doubleVal".into(),
+                                TypeDef::Boolean => "boolVal".into(),
+                                TypeDef::Null => "nullVal".into(),
+                                TypeDef::Unknown => "objVal".into(),
+                                TypeDef::Object(_) => name_registry
+                                    .assigned_name(*inner_type_id)
+                                    .map(|ident| ident.to_case(Case::Camel))
+                                    .unwrap_or_else(|| format!("clazz{}", inner_type_id)),
+                                TypeDef::Union(_) => name_registry
+                                    .assigned_name(*inner_type_id)
+                                    .map(|ident| ident.to_case(Case::Camel))
+                                    .unwrap_or_else(|| format!("union{}", inner_type_id)),
+                                TypeDef::Array(_) => name_registry
+                                    .assigned_name(*inner_type_id)
+                                    .map(|ident| ident.to_case(Case::Camel))
+                                    .unwrap_or_else(|| format!("arr{}", inner_type_id)),
+                                TypeDef::Optional(_) => name_registry
+                                    .assigned_name(*inner_type_id)
+                                    .map(|ident| ident.to_case(Case::Camel))
+                                    .unwrap_or_else(|| format!("opt{}", inner_type_id)),
+                            },
+                            None => format!("variant{}", inner_type_id),
+                        };
+
+                        vars.push(UnionMemberVar {
+                            var_name,
+                            type_name,
+                        });
                     }
-                }
 
-                classes.push(Class {
-                    name: class_name,
-                    vars,
-                    needs_custom_serializer_deserializer,
-                });
-            }
-
-            if let TypeDef::Union(inner_type_ids) = type_def {
-                let class_name = name_registry
-                    .assigned_name(*type_id)
-                    .map(|ident| ident.to_case(Case::Pascal))
-                    .unwrap_or_else(|| format!("Type{}", type_id));
-
-                let mut vars: Vec<UnionMemberVar> = Vec::with_capacity(inner_type_ids.len());
-                for inner_type_id in inner_type_ids {
-                    let type_name = derive_type_name(*inner_type_id, &type_graph, &name_registry);
-                    let var_name = match type_graph.nodes.get(inner_type_id) {
-                        Some(inner_type_def) => match inner_type_def {
-                            TypeDef::String => "strVal".into(),
-                            TypeDef::Integer => "intVal".into(),
-                            TypeDef::Float => "doubleVal".into(),
-                            TypeDef::Boolean => "boolVal".into(),
-                            TypeDef::Null => "nullVal".into(),
-                            TypeDef::Unknown => "objVal".into(),
-                            TypeDef::Object(_) => name_registry
-                                .assigned_name(*inner_type_id)
-                                .map(|ident| ident.to_case(Case::Camel))
-                                .unwrap_or_else(|| format!("clazz{}", inner_type_id)),
-                            TypeDef::Union(_) => name_registry
-                                .assigned_name(*inner_type_id)
-                                .map(|ident| ident.to_case(Case::Camel))
-                                .unwrap_or_else(|| format!("union{}", inner_type_id)),
-                            TypeDef::Array(_) => name_registry
-                                .assigned_name(*inner_type_id)
-                                .map(|ident| ident.to_case(Case::Camel))
-                                .unwrap_or_else(|| format!("arr{}", inner_type_id)),
-                            TypeDef::Optional(_) => name_registry
-                                .assigned_name(*inner_type_id)
-                                .map(|ident| ident.to_case(Case::Camel))
-                                .unwrap_or_else(|| format!("opt{}", inner_type_id)),
-                        },
-                        None => format!("variant{}", inner_type_id),
-                    };
-
-                    vars.push(UnionMemberVar {
-                        var_name,
-                        type_name,
+                    unions.push(Union {
+                        name: class_name,
+                        vars,
                     });
                 }
-
-                unions.push(Union {
-                    name: class_name,
-                    vars,
-                });
+                TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) => {
+                    queue.push_back(*inner_type_id);
+                }
+                _ => {}
             }
         }
 

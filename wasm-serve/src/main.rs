@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let args = Args::parse();
-    let mut app = Router::new();
+    let mut router = Router::new();
 
     let mut route_paths = vec![];
 
@@ -35,21 +35,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         {
             let route_path = format!("/{}", unicode_path);
             let service = get_service(ServeFile::new(&path));
-            app = app.route(&route_path, service);
+            router = router.route(&route_path, service);
 
             tracing::info!("serving file {:?} at route {}", path, route_path);
             route_paths.push(route_path);
         }
     }
 
-    app = app.route("/", get(Json(route_paths)));
+    router = router.route("/", get(Json(route_paths)));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
     let listener = tokio::net::TcpListener::bind(addr).await?;
     let local_addr = listener.local_addr()?;
 
     tracing::info!("listening on {}", local_addr);
-    axum::serve(listener, app).await?;
+    axum::serve(listener, router).await?;
 
     Ok(())
 }

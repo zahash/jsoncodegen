@@ -16,5 +16,9 @@ path = "src/main.rs"
 clap = { version = "4", features = ["derive", "env"] }
 reqwest = { version = "0.13", features = ["blocking", "json"] }
 serde = { version = "1", features = ["derive"] }
-wasmtime = { version = "40", default-features = false, features = ["cranelift"] }
+wasmtime = { version = "40", default-features = false, features = [
+    "cranelift",
+] }
 wasmtime-wasi = { version = "40", default-features = false, features = ["p1"] }
+
+jsoncodegen-utils = { path = "../utils" }

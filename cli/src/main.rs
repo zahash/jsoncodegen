@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
+use jsoncodegen_utils::default_runtime_dir;
 use std::{
-    env,
     error::Error,
     fs::{self, File},
     io::Write,
@@ -139,14 +139,6 @@ fn fetch_latest_wasm_release(lang: &str, dest_path: &PathBuf) -> Result<(), Box<
 
     eprintln!("Successfully downloaded to: {}", dest_path.display());
     Ok(())
-}
-
-fn default_runtime_dir() -> PathBuf {
-    let mut runtime_dir = env::home_dir()
-        .or_else(|| env::current_dir().ok())
-        .unwrap_or_default();
-    runtime_dir.push(".jsoncodegen");
-    runtime_dir
 }
 
 fn lang_2_wasm_filename(lang: &str) -> String {

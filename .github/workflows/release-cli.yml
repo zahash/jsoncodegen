@@ -10,8 +10,17 @@ on:
         type: string
 
 jobs:
+  run-tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Tests
+        run: cargo test --package jsoncodegen-cli -- --nocapture
+
   build-linux-x86_64:
     name: Build (Linux x86_64)
+    needs:
+      - run-tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,6 +51,8 @@ jobs:
 
   build-linux-arm64:
     name: Build (Linux ARM64)
+    needs:
+      - run-tests
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout
@@ -72,6 +83,8 @@ jobs:
 
   build-windows-x86_64:
     name: Build (Windows MSVC x86_64)
+    needs:
+      - run-tests
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -102,6 +115,8 @@ jobs:
 
   build-windows-i686:
     name: Build (Windows MSVC i686)
+    needs:
+      - run-tests
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -132,6 +147,8 @@ jobs:
 
   build-windows-arm64:
     name: Build (Windows ARM64 MSVC)
+    needs:
+      - run-tests
     runs-on: windows-11-arm
     steps:
       - name: Checkout
@@ -162,6 +179,8 @@ jobs:
 
   build-macos-x86_64:
     name: Build (macOS x86_64)
+    needs:
+      - run-tests
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -192,6 +211,8 @@ jobs:
 
   build-macos-arm64:
     name: Build (macOS ARM64)
+    needs:
+      - run-tests
     runs-on: macos-latest
     steps:
       - name: Checkout

@@ -110,6 +110,7 @@ pub enum FieldType {
 impl From<Value> for Schema {
     fn from(json: Value) -> Self {
         let mut field_type = field_type(json);
+        // recursively sort field_type to make sure it has a deterministic order
         sort_field_type(&mut field_type);
 
         Schema { ty: field_type }

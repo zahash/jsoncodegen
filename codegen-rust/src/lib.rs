@@ -53,34 +53,42 @@ impl From<serde_json::Value> for Rust {
         let mut structs = vec![];
         let mut enums = vec![];
 
-        for (type_id, type_def) in &type_graph.nodes {
-            if *type_id == type_graph.root {
-                match type_def {
-                    TypeDef::Object(_) => {
-                        root = derive_type_name(
-                            *type_id,
+        if let Some(type_def) = type_graph.nodes.get(&type_graph.root) {
+            match type_def {
+                TypeDef::Object(_) => {
+                    root = derive_type_name(
+                        type_graph.root,
+                        &type_graph,
+                        &name_registry,
+                        type_graph.root,
+                        &back_edges,
+                    )
+                }
+                TypeDef::Array(inner_type_id) => {
+                    root = format!(
+                        "Vec<{}>",
+                        derive_type_name(
+                            *inner_type_id,
                             &type_graph,
                             &name_registry,
-                            *type_id,
-                            &back_edges,
+                            type_graph.root,
+                            &back_edges
                         )
-                    }
-                    TypeDef::Array(inner_type_id) => {
-                        root = format!(
-                            "Vec<{}>",
-                            derive_type_name(
-                                *inner_type_id,
-                                &type_graph,
-                                &name_registry,
-                                *type_id,
-                                &back_edges
-                            )
-                        )
-                    }
-                    _ => { /* no-op */ }
-                };
-            }
+                    )
+                }
+                _ => {
+                    root = derive_type_name(
+                        type_graph.root,
+                        &type_graph,
+                        &name_registry,
+                        type_graph.root,
+                        &back_edges,
+                    )
+                }
+            };
+        }
 
+        for (type_id, type_def) in &type_graph.nodes {
             if let TypeDef::Object(object_fields) = type_def {
                 let struct_name = name_registry
                     .assigned_name(*type_id)

@@ -265,13 +265,7 @@ impl GraphBuilder {
     fn build(schema: Schema) -> TypeGraph {
         let mut builder = GraphBuilder::default();
 
-        let root_type_id = match schema {
-            Schema::Object(fields) => builder.process_fields(fields),
-            Schema::Array(field_type) => {
-                let inner_type_id = builder.process_field_type(field_type);
-                builder.intern(TypeDef::Array(inner_type_id))
-            }
-        };
+        let root_type_id = builder.process_field_type(schema.ty);
 
         TypeGraph {
             root: root_type_id,

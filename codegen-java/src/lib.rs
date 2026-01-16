@@ -12,9 +12,14 @@ pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> io::Result<(
 }
 
 struct Java {
-    root: String,
+    root: RootType,
     classes: Vec<Class>,
     unions: Vec<Union>,
+}
+
+enum RootType {
+    Extension(String), // extends ...
+    Wrapper(String),   // wrapper around ...
 }
 
 struct Class {
@@ -53,9 +58,35 @@ impl From<serde_json::Value> for Java {
             },
         );
 
-        let mut root = String::from("Object");
+        let mut root = RootType::Extension("Object".into());
         let mut classes = vec![];
         let mut unions = vec![];
+
+        // Determine root type
+        if let Some(type_def) = type_graph.nodes.get(&type_graph.root) {
+            match type_def {
+                TypeDef::Object(_) => {
+                    root = RootType::Extension(derive_type_name(
+                        type_graph.root,
+                        &type_graph,
+                        &name_registry,
+                    ))
+                }
+                TypeDef::Array(inner_type_id) => {
+                    root = RootType::Extension(format!(
+                        "java.util.ArrayList<{}>",
+                        derive_type_name(*inner_type_id, &type_graph, &name_registry)
+                    ))
+                }
+                _ => {
+                    root = RootType::Wrapper(derive_type_name(
+                        type_graph.root,
+                        &type_graph,
+                        &name_registry,
+                    ))
+                }
+            };
+        }
 
         // TODO: instead of iterating through type_graph.nodes
         // and processing TypeDef::Object and TypeDef::Union,
@@ -68,21 +99,6 @@ impl From<serde_json::Value> for Java {
         // TODO: to avoid case-insensitive name clash with ROOT,
         // try to inline the root type in the top level JsonCodeGen
         for (type_id, type_def) in &type_graph.nodes {
-            if *type_id == type_graph.root {
-                match type_def {
-                    TypeDef::Object(_) => {
-                        root = derive_type_name(*type_id, &type_graph, &name_registry)
-                    }
-                    TypeDef::Array(inner_type_id) => {
-                        root = format!(
-                            "java.util.ArrayList<{}>",
-                            derive_type_name(*inner_type_id, &type_graph, &name_registry)
-                        )
-                    }
-                    _ => { /* no-op */ }
-                };
-            }
-
             if let TypeDef::Object(object_fields) = type_def {
                 let class_name = name_registry
                     .assigned_name(*type_id)
@@ -298,6 +314,7 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
         .iter()
         .flat_map(|c| &c.vars)
         .any(|v| v.annotate)
+        || matches!(java.root, RootType::Wrapper(_))
     {
         writeln!(out, "import com.fasterxml.jackson.annotation.*;")?;
     }
@@ -319,7 +336,20 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
     // class with name ROOT (SCREAMING_SNAKE_CASE)
     // will never clash with other classes (PascalCase)
     writeln!(out, "\t// entry point = ROOT")?;
-    writeln!(out, "\tpublic static class ROOT extends {} {{}}", java.root)?;
+    match java.root {
+        RootType::Extension(base) => {
+            writeln!(out, "\tpublic static class ROOT extends {} {{}}", base)?;
+        }
+        RootType::Wrapper(inner) => {
+            writeln!(out, "\tpublic static class ROOT {{")?;
+            writeln!(out, "\t\tprivate final {} value;", inner)?;
+            writeln!(out, "\t\t@JsonCreator(mode = JsonCreator.Mode.DELEGATING)")?;
+            writeln!(out, "\t\tpublic ROOT({} value) {{ this.value = value; }}", inner)?;
+            writeln!(out, "\t\t@JsonValue")?;
+            writeln!(out, "\t\tpublic {} getValue() {{ return value; }}", inner)?;
+            writeln!(out, "\t}}")?;
+        }
+    }
 
     for class in java.classes {
         if class.needs_custom_serializer_deserializer {

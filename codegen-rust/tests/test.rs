@@ -2,7 +2,6 @@ use futures::StreamExt;
 use jsoncodegen_rust::codegen;
 use jsoncodegen_test_utils::{collect_test_files, copy_dir_all, json_equiv};
 use serde_json::Value;
-use tokio::process::Command;
 
 use std::{
     env, fs,
@@ -34,10 +33,13 @@ async fn run_test<P: AsRef<Path>>(input: P) {
     println!("Running test: {}", name);
 
     let harness = env::temp_dir().join(format!("rust-{}", name));
+    let output = harness.join("output.json");
 
     // Clean up any previous test run
     let _ = fs::remove_dir_all(&harness);
     fs::create_dir_all(&harness).expect("Failed to create harness directory");
+    fs::File::create(&output).expect("Failed to create output file");
+
     copy_dir_all(
         &PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
@@ -55,13 +57,17 @@ async fn run_test<P: AsRef<Path>>(input: P) {
     )
     .expect("Failed to run codegen");
 
-    // Build the test project
-    let build_output = Command::new("cargo")
-        .args(["build"])
-        .current_dir(&harness)
-        .output()
-        .await
-        .expect("Failed to run cargo build");
+    // Run in Docker
+    let cmd_output = jsoncodegen_test_utils::run_in_docker(
+        "rust:latest",
+        &harness,
+        input,
+        &output,
+        &[],
+        "set -e; cargo run --quiet < /data/input.json > /data/output.json;",
+    )
+    .await
+    .expect("Failed to run Docker container");
 
     let generated_code = fs::read_to_string(harness.join("src").join("generated.rs"))
         .unwrap_or_else(|_| "<failed to read>".to_string());
@@ -69,32 +75,16 @@ async fn run_test<P: AsRef<Path>>(input: P) {
         fs::read_to_string(input).unwrap_or_else(|_| "<failed to read>".to_string());
 
     assert!(
-        build_output.status.success(),
-        "Build failed for: {name}\n\n--- input.json ---\n{input_content}\n\n--- generated.rs ---\n{generated_code}\n\n--- stdout ---\n{}\n--- stderr ---\n{}",
-        String::from_utf8_lossy(&build_output.stdout),
-        String::from_utf8_lossy(&build_output.stderr)
-    );
-
-    // Run the test binary with input JSON
-    let run_output = Command::new(harness.join("target").join("debug").join("jsoncodegen"))
-        .stdin(fs::File::open(input).expect("Failed to open input file"))
-        .output()
-        .await
-        .expect("Failed to run test binary");
-
-    // Clean up after running test
-    let _ = fs::remove_dir_all(&harness);
-
-    assert!(
-        run_output.status.success(),
+        cmd_output.status.success(),
         "Run failed for: {name}\n\n--- input.json ---\n{input_content}\n\n--- generated.rs ---\n{generated_code}\n\n--- stdout ---\n{}\n--- stderr ---\n{}",
-        String::from_utf8_lossy(&run_output.stdout),
-        String::from_utf8_lossy(&run_output.stderr)
+        String::from_utf8_lossy(&cmd_output.stdout),
+        String::from_utf8_lossy(&cmd_output.stderr)
     );
 
     // Parse the output
     let output_json: Value =
-        serde_json::from_slice(&run_output.stdout).expect("Failed to parse output JSON");
+        serde_json::from_reader(fs::File::open(&output).expect("Failed to open output file"))
+            .expect("Failed to parse output JSON");
     let expected_json: Value =
         serde_json::from_reader(fs::File::open(input).expect("Failed to open input file"))
             .expect("Failed to parse expected JSON");
@@ -103,4 +93,7 @@ async fn run_test<P: AsRef<Path>>(input: P) {
         json_equiv(&output_json, &expected_json),
         "Mismatch for: {name}\n\nExpected:\n{expected_json:#?}\n\nActual:\n{output_json:#?}"
     );
+
+    // Clean up after running test
+    let _ = fs::remove_dir_all(&harness);
 }

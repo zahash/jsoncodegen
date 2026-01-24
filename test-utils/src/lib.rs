@@ -3,6 +3,7 @@ use std::{
     env, fs, io,
     path::{Path, PathBuf},
 };
+use tokio::process::Command;
 
 /// Check semantic equivalence of two JSON values.
 /// Treats `null` values as equivalent to absent fields in objects.
@@ -73,4 +74,54 @@ pub fn collect_test_files() -> Vec<PathBuf> {
         (path.extension()? == "json").then_some(path)
     })
     .collect()
+}
+
+/// Run a command inside a Docker container with standard volume mounts.
+///
+/// Mounts:
+/// - `harness_host` -> `/workspace` (RW)
+/// - `input_host` -> `/data/input.json` (RO)
+/// - `output_host` -> `/data/output.json` (RW)
+/// - `extra_volumes` -> as specified
+///
+/// Workdir is set to `/workspace`.
+pub async fn run_in_docker(
+    image: &str,
+    harness_host: &Path,
+    input_host: &Path,
+    output_host: &Path,
+    extra_volumes: &[(&Path, &str)],
+    command: &str,
+) -> io::Result<std::process::Output> {
+    let mut cmd = Command::new("docker");
+    cmd.args(["run", "--rm"]);
+
+    // Mount harness
+    cmd.arg("-v")
+        .arg(format!("{}:/workspace", harness_host.display()));
+
+    // Mount input (ro)
+    cmd.arg("-v")
+        .arg(format!("{}:/data/input.json:ro", input_host.display()));
+
+    // Mount output
+    cmd.arg("-v")
+        .arg(format!("{}:/data/output.json", output_host.display()));
+
+    // Extra volumes
+    for (host, container) in extra_volumes {
+        cmd.arg("-v")
+            .arg(format!("{}:{}", host.display(), container));
+    }
+
+    // Workdir
+    cmd.arg("-w").arg("/workspace");
+
+    // Image
+    cmd.arg(image);
+
+    // Command (using bash -lc)
+    cmd.args(["bash", "-lc", command]);
+
+    cmd.output().await
 }

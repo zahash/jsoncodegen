@@ -344,7 +344,11 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
             writeln!(out, "\tpublic static class ROOT {{")?;
             writeln!(out, "\t\tprivate final {} value;", inner)?;
             writeln!(out, "\t\t@JsonCreator(mode = JsonCreator.Mode.DELEGATING)")?;
-            writeln!(out, "\t\tpublic ROOT({} value) {{ this.value = value; }}", inner)?;
+            writeln!(
+                out,
+                "\t\tpublic ROOT({} value) {{ this.value = value; }}",
+                inner
+            )?;
             writeln!(out, "\t\t@JsonValue")?;
             writeln!(out, "\t\tpublic {} getValue() {{ return value; }}", inner)?;
             writeln!(out, "\t}}")?;

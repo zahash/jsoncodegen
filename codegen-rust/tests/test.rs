@@ -58,18 +58,23 @@ async fn run_test<P: AsRef<Path>>(input: P) {
     )
     .expect("Failed to run codegen");
 
-    #[rustfmt::skip]
+    // Run in Docker
     let cmd_output = Command::new("docker")
         .args([
-            "run", "--rm",
-            "-v", &format!("{}:/workspace", harness.display()),
-            "-v", &format!("{}:/data/input.json:ro", input.display()),
-            "-v", &format!("{}:/data/output.json", output.display()),
-            "-w", "/workspace",
+            "run",
+            "--rm",
+            "-v",
+            &format!("{}:/workspace", harness.display()),
+            "-v",
+            &format!("{}:/data/input.json:ro", input.display()),
+            "-v",
+            &format!("{}:/data/output.json", output.display()),
+            "-w",
+            "/workspace",
             "rust:latest",
-            "bash", "-lc",
-            "    set -e;\
-                 cargo run < /data/input.json > /data/output.json;",
+            "bash",
+            "-lc",
+            "set -e; /usr/local/cargo/bin/cargo run --quiet < /data/input.json > /data/output.json;",
         ])
         .output()
         .await
@@ -99,4 +104,7 @@ async fn run_test<P: AsRef<Path>>(input: P) {
         json_equiv(&output_json, &expected_json),
         "Mismatch for: {name}\n\nExpected:\n{expected_json:#?}\n\nActual:\n{output_json:#?}"
     );
+
+    // Clean up after running test
+    let _ = fs::remove_dir_all(&harness);
 }

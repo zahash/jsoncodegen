@@ -63,6 +63,8 @@ async fn run_test<P: AsRef<Path>>(input_filepath: P) {
     )
     .expect("Failed to run codegen");
 
+    // TODO: have a common target dir mounted so redundant compilations can be avoided.
+    //       set CARGO_TARGET_DIR env var to some path and mount it
     #[rustfmt::skip]
     let cmd_output = Command::new("docker")
         .args([

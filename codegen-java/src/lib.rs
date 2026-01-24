@@ -12,14 +12,13 @@ pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> io::Result<(
 }
 
 struct Java {
-    root: RootStrategy,
+    root_id: TypeId,
+    root: RootType,
     classes: Vec<Class>,
     unions: Vec<Union>,
 }
 
-enum RootStrategy {
-    InlineClass(Class),
-    InlineUnion(Union),
+enum RootType {
     Extension(String), // extends ...
     Wrapper(String),   // wrapper around ...
 }
@@ -62,8 +61,46 @@ impl From<serde_json::Value> for Java {
             },
         );
 
+        let mut root = RootType::Extension("Object".into());
         let mut classes = vec![];
         let mut unions = vec![];
+
+        // Determine root type
+        if let Some(type_def) = type_graph.nodes.get(&type_graph.root) {
+            match type_def {
+                TypeDef::Object(_) => {
+                    root = RootType::Extension(derive_type_name(
+                        type_graph.root,
+                        &type_graph,
+                        &name_registry,
+                    ))
+                }
+                TypeDef::Array(inner_type_id) => {
+                    root = RootType::Extension(format!(
+                        "java.util.ArrayList<{}>",
+                        derive_type_name(*inner_type_id, &type_graph, &name_registry)
+                    ))
+                }
+                _ => {
+                    let type_name = match type_def {
+                        TypeDef::String => "String".into(),
+                        TypeDef::Integer => "Long".into(),
+                        TypeDef::Float => "Double".into(),
+                        TypeDef::Boolean => "Boolean".into(),
+                        TypeDef::Null | TypeDef::Unknown => "Object".into(),
+                        TypeDef::Optional(inner) => {
+                            derive_type_name(*inner, &type_graph, &name_registry)
+                        }
+                        TypeDef::Array(inner) => format!(
+                            "{}[]",
+                            derive_type_name(*inner, &type_graph, &name_registry)
+                        ),
+                        TypeDef::Object(_) | TypeDef::Union(_) => "JsonCodeGen".into(),
+                    };
+                    root = RootType::Wrapper(type_name)
+                }
+            };
+        }
 
         for (type_id, type_def) in &type_graph.nodes {
             if let TypeDef::Object(object_fields) = type_def {
@@ -166,42 +203,8 @@ impl From<serde_json::Value> for Java {
             }
         }
 
-        let root_id = type_graph.root;
-        let root = if let Some(node) = type_graph.nodes.get(&root_id) {
-             match node {
-                 TypeDef::Object(_) => {
-                     if let Some(pos) = classes.iter().position(|c| c.type_id == root_id) {
-                         let class = classes.remove(pos);
-                         RootStrategy::InlineClass(class)
-                     } else {
-                         RootStrategy::Extension("Object".into())
-                     }
-                 },
-                 TypeDef::Union(_) => {
-                     if let Some(pos) = unions.iter().position(|u| u.type_id == root_id) {
-                         let union = unions.remove(pos);
-                         RootStrategy::InlineUnion(union)
-                     } else {
-                         RootStrategy::Extension("Object".into())
-                     }
-                 },
-                 TypeDef::Array(inner) => {
-                     RootStrategy::Extension(format!("java.util.ArrayList<{}>", derive_type_name(*inner, &type_graph, &name_registry)))
-                 },
-                 TypeDef::String => RootStrategy::Wrapper("String".into()),
-                 TypeDef::Integer => RootStrategy::Wrapper("Long".into()),
-                 TypeDef::Float => RootStrategy::Wrapper("Double".into()),
-                 TypeDef::Boolean => RootStrategy::Wrapper("Boolean".into()),
-                 TypeDef::Null | TypeDef::Unknown => RootStrategy::Wrapper("Object".into()),
-                 TypeDef::Optional(inner) => {
-                    RootStrategy::Wrapper(derive_type_name(*inner, &type_graph, &name_registry))
-                 }
-             }
-        } else {
-            RootStrategy::Extension("Object".into())
-        };
-
         Self {
+            root_id: type_graph.root,
             root,
             classes,
             unions,
@@ -537,14 +540,17 @@ fn write_union_body(
 }
 
 fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
+    let root_class = java.classes.iter().find(|c| c.type_id == java.root_id);
+    let root_union = java.unions.iter().find(|u| u.type_id == java.root_id);
+
     let mut needs_annotations = java
         .classes
         .iter()
         .flat_map(|c| &c.vars)
         .any(|v| v.annotate)
-        || matches!(java.root, RootStrategy::Wrapper(_));
+        || matches!(java.root, RootType::Wrapper(_));
 
-    if let RootStrategy::InlineClass(ref c) = java.root {
+    if let Some(c) = root_class {
         if c.vars.iter().any(|v| v.annotate) {
             needs_annotations = true;
         }
@@ -560,12 +566,12 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
             .iter()
             .any(|c| c.needs_custom_serializer_deserializer);
 
-    if let RootStrategy::InlineClass(ref c) = java.root {
+    if let Some(c) = root_class {
         if c.needs_custom_serializer_deserializer {
             needs_jackson = true;
         }
     }
-    if matches!(java.root, RootStrategy::InlineUnion(_)) {
+    if root_union.is_some() {
         needs_jackson = true;
     }
 
@@ -576,7 +582,7 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
         writeln!(out, "import java.io.IOException;")?;
     }
 
-    if let RootStrategy::InlineClass(ref c) = java.root {
+    if let Some(c) = root_class {
         if c.needs_custom_serializer_deserializer {
             writeln!(out, "@JsonSerialize(using = JsonCodeGen.Serializer.class)")?;
             writeln!(
@@ -585,7 +591,7 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
             )?;
         }
     }
-    if let RootStrategy::InlineUnion(_) = java.root {
+    if root_union.is_some() {
         writeln!(out, "@JsonSerialize(using = JsonCodeGen.Serializer.class)")?;
         writeln!(
             out,
@@ -593,37 +599,42 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
         )?;
     }
 
-    match &java.root {
-        RootStrategy::Extension(base) => {
-            writeln!(out, "public class JsonCodeGen extends {} {{", base)?;
-        }
-        _ => {
-            writeln!(out, "public class JsonCodeGen {{")?;
+    // Determine generation strategy based on root type
+    if root_class.is_some() || root_union.is_some() {
+        // Root is a class or union, so we inline it into JsonCodeGen
+        writeln!(out, "public class JsonCodeGen {{")?;
+    } else {
+        // Root is likely Array or Primitive, use legacy logic
+        match java.root {
+            RootType::Extension(base) => {
+                writeln!(out, "public class JsonCodeGen extends {} {{", base)?;
+            }
+            RootType::Wrapper(inner) => {
+                writeln!(out, "public class JsonCodeGen {{")?;
+                writeln!(out, "\tprivate final {} value;", inner)?;
+                writeln!(out, "\t@JsonCreator(mode = JsonCreator.Mode.DELEGATING)")?;
+                writeln!(
+                    out,
+                    "\tpublic JsonCodeGen({} value) {{ this.value = value; }}",
+                    inner
+                )?;
+                writeln!(out, "\t@JsonValue")?;
+                writeln!(out, "\tpublic {} getValue() {{ return value; }}", inner)?;
+            }
         }
     }
 
-    match &java.root {
-        RootStrategy::InlineClass(class) => {
-            write_class_body(class, "JsonCodeGen", "\t", out)?;
-        }
-        RootStrategy::InlineUnion(union) => {
-            write_union_body(union, "JsonCodeGen", "\t", out)?;
-        }
-        RootStrategy::Wrapper(inner) => {
-            writeln!(out, "\tprivate final {} value;", inner)?;
-            writeln!(out, "\t@JsonCreator(mode = JsonCreator.Mode.DELEGATING)")?;
-            writeln!(
-                out,
-                "\tpublic JsonCodeGen({} value) {{ this.value = value; }}",
-                inner
-            )?;
-            writeln!(out, "\t@JsonValue")?;
-            writeln!(out, "\tpublic {} getValue() {{ return value; }}", inner)?;
-        }
-        RootStrategy::Extension(_) => {}
+    if let Some(class) = root_class {
+        write_class_body(class, "JsonCodeGen", "\t", out)?;
+    } else if let Some(union) = root_union {
+        write_union_body(union, "JsonCodeGen", "\t", out)?;
     }
 
     for class in java.classes {
+        if class.type_id == java.root_id {
+            continue;
+        }
+
         if class.needs_custom_serializer_deserializer {
             writeln!(
                 out,
@@ -642,6 +653,9 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
     }
 
     for union in java.unions {
+        if union.type_id == java.root_id {
+            continue;
+        }
         writeln!(
             out,
             "\t@JsonSerialize(using = {}.Serializer.class)",
@@ -659,3 +673,5 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
 
     writeln!(out, "}}")
 }
+
+#[cfg(test)]

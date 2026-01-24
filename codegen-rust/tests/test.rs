@@ -2,6 +2,7 @@ use futures::StreamExt;
 use jsoncodegen_rust::codegen;
 use jsoncodegen_test_utils::{collect_test_files, copy_dir_all, json_equiv};
 use serde_json::Value;
+use tokio::process::Command;
 
 use std::{
     env, fs,
@@ -58,16 +59,26 @@ async fn run_test<P: AsRef<Path>>(input: P) {
     .expect("Failed to run codegen");
 
     // Run in Docker
-    let cmd_output = jsoncodegen_test_utils::run_in_docker(
-        "rust:latest",
-        &harness,
-        input,
-        &output,
-        &[],
-        "set -e; cargo run --quiet < /data/input.json > /data/output.json;",
-    )
-    .await
-    .expect("Failed to run Docker container");
+    let cmd_output = Command::new("docker")
+        .args([
+            "run",
+            "--rm",
+            "-v",
+            &format!("{}:/workspace", harness.display()),
+            "-v",
+            &format!("{}:/data/input.json:ro", input.display()),
+            "-v",
+            &format!("{}:/data/output.json", output.display()),
+            "-w",
+            "/workspace",
+            "rust:latest",
+            "bash",
+            "-lc",
+            "set -e; cargo run --quiet < /data/input.json > /data/output.json;",
+        ])
+        .output()
+        .await
+        .expect("Failed to run Docker container");
 
     let generated_code = fs::read_to_string(harness.join("src").join("generated.rs"))
         .unwrap_or_else(|_| "<failed to read>".to_string());

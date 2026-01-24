@@ -2,6 +2,7 @@ use futures::StreamExt;
 use jsoncodegen_java::codegen;
 use jsoncodegen_test_utils::{collect_test_files, copy_dir_all, json_equiv};
 use serde_json::Value;
+use tokio::process::Command;
 
 use std::{
     env, fs,
@@ -66,19 +67,25 @@ async fn run_test<P: AsRef<Path>>(input: P) {
     )
     .expect("Failed to run codegen");
 
-    let cmd_output = jsoncodegen_test_utils::run_in_docker(
-        "docker.io/library/maven:3.9.9-eclipse-temurin-17",
-        &harness,
-        input,
-        &output,
-        &[(&M2, "/root/.m2")],
-        "set -e;\
-         mvn clean package;\
-         mvn dependency:copy-dependencies -DoutputDirectory=target/lib -DincludeScope=runtime;\
-         java -jar target/jsoncodegen.jar < /data/input.json > /data/output.json;",
-    )
-    .await
-    .expect("Failed to run Docker container");
+    #[rustfmt::skip]
+    let cmd_output = Command::new("docker")
+        .args([
+            "run", "--rm",
+            "-v", &format!("{}:/workspace", harness.display()),
+            "-v", &format!("{}:/root/.m2", M2.display()),
+            "-v", &format!("{}:/data/input.json:ro", input.display()),
+            "-v", &format!("{}:/data/output.json", output.display()),
+            "-w", "/workspace",
+            "docker.io/library/maven:3.9.9-eclipse-temurin-17",
+            "bash", "-lc",
+            "   set -e;\
+                mvn clean package;\
+                mvn dependency:copy-dependencies -DoutputDirectory=target/lib -DincludeScope=runtime;\
+                java -jar target/jsoncodegen.jar < /data/input.json > /data/output.json;",
+        ])
+        .output()
+        .await
+        .expect("Failed to run Docker container");
 
     let generated_code = fs::read_to_string(harness.join("src").join("JsonCodeGen.java"))
         .unwrap_or_else(|_| "<failed to read>".to_string());

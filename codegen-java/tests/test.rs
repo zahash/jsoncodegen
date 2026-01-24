@@ -47,8 +47,12 @@ async fn run_test<P: AsRef<Path>>(input: P) {
         .join(input.file_name().expect("Missing file name"));
     let harness = env::temp_dir().join(name);
 
-    fs::create_dir_all(output.parent().expect("Missing parent directory"))
-        .expect("Failed to create output directory");
+    fs::create_dir_all(
+        output
+            .parent()
+            .expect("Missing parent directory for output file"),
+    )
+    .expect("Failed to create output directory");
     fs::File::create(&output).expect("Failed to create output file");
     fs::create_dir_all(&harness).expect("Failed to create harness directory");
     copy_dir_all(

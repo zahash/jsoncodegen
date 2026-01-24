@@ -33,14 +33,20 @@ async fn run_test<P: AsRef<Path>>(input: P) {
 
     println!("Running test: {}", name);
 
-    let harness = env::temp_dir().join(format!("rust-{}", name));
-    let output = harness.join("output.json");
+    let output = env::temp_dir()
+        .join("rust")
+        .join(input.file_name().expect("Missing file name"));
+    let harness = env::temp_dir().join(name);
 
-    // Clean up any previous test run
     let _ = fs::remove_dir_all(&harness);
-    fs::create_dir_all(&harness).expect("Failed to create harness directory");
+    fs::create_dir_all(
+        output
+            .parent()
+            .expect("Missing parent directory for output file"),
+    )
+    .expect("Failed to create output directory");
     fs::File::create(&output).expect("Failed to create output file");
-
+    fs::create_dir_all(&harness).expect("Failed to create harness directory");
     copy_dir_all(
         &PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
@@ -49,7 +55,6 @@ async fn run_test<P: AsRef<Path>>(input: P) {
     )
     .expect("Failed to copy template");
 
-    // Generate the Rust code
     codegen(
         serde_json::from_reader(fs::File::open(input).expect("Failed to open input file"))
             .expect("Failed to parse input JSON"),
@@ -58,23 +63,18 @@ async fn run_test<P: AsRef<Path>>(input: P) {
     )
     .expect("Failed to run codegen");
 
-    // Run in Docker
+    #[rustfmt::skip]
     let cmd_output = Command::new("docker")
         .args([
-            "run",
-            "--rm",
-            "-v",
-            &format!("{}:/workspace", harness.display()),
-            "-v",
-            &format!("{}:/data/input.json:ro", input.display()),
-            "-v",
-            &format!("{}:/data/output.json", output.display()),
-            "-w",
-            "/workspace",
-            "docker.io/library/rust:latest",
-            "bash",
-            "-lc",
-            "set -e; /usr/local/cargo/bin/cargo run --quiet < /data/input.json > /data/output.json;",
+            "run", "--rm",
+            "-v", &format!("{}:/workspace", harness.display()),
+            "-v", &format!("{}:/data/input.json:ro", input.display()),
+            "-v", &format!("{}:/data/output.json", output.display()),
+            "-w", "/workspace",
+            "docker.io/library/rust:slim",
+            "bash", "-lc",
+            "    set -e;\
+                 /usr/local/cargo/bin/cargo run --quiet < /data/input.json > /data/output.json;",
         ])
         .output()
         .await
@@ -92,7 +92,6 @@ async fn run_test<P: AsRef<Path>>(input: P) {
         String::from_utf8_lossy(&cmd_output.stderr)
     );
 
-    // Parse the output
     let output_json: Value =
         serde_json::from_reader(fs::File::open(&output).expect("Failed to open output file"))
             .expect("Failed to parse output JSON");
@@ -104,7 +103,4 @@ async fn run_test<P: AsRef<Path>>(input: P) {
         json_equiv(&output_json, &expected_json),
         "Mismatch for: {name}\n\nExpected:\n{expected_json:#?}\n\nActual:\n{output_json:#?}"
     );
-
-    // Clean up after running test
-    let _ = fs::remove_dir_all(&harness);
 }

@@ -12,17 +12,20 @@ pub fn codegen(json: serde_json::Value, out: &mut dyn io::Write) -> io::Result<(
 }
 
 struct Java {
-    root: RootType,
+    root: RootStrategy,
     classes: Vec<Class>,
     unions: Vec<Union>,
 }
 
-enum RootType {
+enum RootStrategy {
+    InlineClass(Class),
+    InlineUnion(Union),
     Extension(String), // extends ...
     Wrapper(String),   // wrapper around ...
 }
 
 struct Class {
+    type_id: TypeId,
     name: String,
     vars: Vec<MemberVar>,
     needs_custom_serializer_deserializer: bool,
@@ -38,6 +41,7 @@ struct MemberVar {
 }
 
 struct Union {
+    type_id: TypeId,
     name: String,
     vars: Vec<UnionMemberVar>,
 }
@@ -58,46 +62,9 @@ impl From<serde_json::Value> for Java {
             },
         );
 
-        let mut root = RootType::Extension("Object".into());
         let mut classes = vec![];
         let mut unions = vec![];
 
-        // Determine root type
-        if let Some(type_def) = type_graph.nodes.get(&type_graph.root) {
-            match type_def {
-                TypeDef::Object(_) => {
-                    root = RootType::Extension(derive_type_name(
-                        type_graph.root,
-                        &type_graph,
-                        &name_registry,
-                    ))
-                }
-                TypeDef::Array(inner_type_id) => {
-                    root = RootType::Extension(format!(
-                        "java.util.ArrayList<{}>",
-                        derive_type_name(*inner_type_id, &type_graph, &name_registry)
-                    ))
-                }
-                _ => {
-                    root = RootType::Wrapper(derive_type_name(
-                        type_graph.root,
-                        &type_graph,
-                        &name_registry,
-                    ))
-                }
-            };
-        }
-
-        // TODO: instead of iterating through type_graph.nodes
-        // and processing TypeDef::Object and TypeDef::Union,
-        // do a bfs traversal (starting from root type_id)
-        // of all TypeIds that are either
-        // TypeDef::Object or TypeDef::Union
-        // This way, the root struct will always be on top
-        // and determining the root type name is much simpler
-        //
-        // TODO: to avoid case-insensitive name clash with ROOT,
-        // try to inline the root type in the top level JsonCodeGen
         for (type_id, type_def) in &type_graph.nodes {
             if let TypeDef::Object(object_fields) = type_def {
                 let class_name = name_registry
@@ -141,6 +108,7 @@ impl From<serde_json::Value> for Java {
                 }
 
                 classes.push(Class {
+                    type_id: *type_id,
                     name: class_name,
                     vars,
                     needs_custom_serializer_deserializer,
@@ -191,11 +159,47 @@ impl From<serde_json::Value> for Java {
                 }
 
                 unions.push(Union {
+                    type_id: *type_id,
                     name: class_name,
                     vars,
                 });
             }
         }
+
+        let root_id = type_graph.root;
+        let root = if let Some(node) = type_graph.nodes.get(&root_id) {
+             match node {
+                 TypeDef::Object(_) => {
+                     if let Some(pos) = classes.iter().position(|c| c.type_id == root_id) {
+                         let class = classes.remove(pos);
+                         RootStrategy::InlineClass(class)
+                     } else {
+                         RootStrategy::Extension("Object".into())
+                     }
+                 },
+                 TypeDef::Union(_) => {
+                     if let Some(pos) = unions.iter().position(|u| u.type_id == root_id) {
+                         let union = unions.remove(pos);
+                         RootStrategy::InlineUnion(union)
+                     } else {
+                         RootStrategy::Extension("Object".into())
+                     }
+                 },
+                 TypeDef::Array(inner) => {
+                     RootStrategy::Extension(format!("java.util.ArrayList<{}>", derive_type_name(*inner, &type_graph, &name_registry)))
+                 },
+                 TypeDef::String => RootStrategy::Wrapper("String".into()),
+                 TypeDef::Integer => RootStrategy::Wrapper("Long".into()),
+                 TypeDef::Float => RootStrategy::Wrapper("Double".into()),
+                 TypeDef::Boolean => RootStrategy::Wrapper("Boolean".into()),
+                 TypeDef::Null | TypeDef::Unknown => RootStrategy::Wrapper("Object".into()),
+                 TypeDef::Optional(inner) => {
+                    RootStrategy::Wrapper(derive_type_name(*inner, &type_graph, &name_registry))
+                 }
+             }
+        } else {
+            RootStrategy::Extension("Object".into())
+        };
 
         Self {
             root,
@@ -210,6 +214,9 @@ fn derive_type_name(
     type_graph: &TypeGraph,
     name_registry: &NameRegistry,
 ) -> String {
+    if type_id == type_graph.root {
+        return "JsonCodeGen".into();
+    }
     match type_graph.nodes.get(&type_id) {
         Some(type_def) => match type_def {
             TypeDef::String => "String".into(),
@@ -308,47 +315,312 @@ pub fn decapitalize_java(s: &str) -> String {
     }
 }
 
+fn write_class_body(
+    class: &Class,
+    class_name: &str,
+    indent: &str,
+    out: &mut dyn io::Write,
+) -> io::Result<()> {
+    for member_var in &class.vars {
+        writeln!(
+            out,
+            "{}private {} {};",
+            indent, member_var.type_name, member_var.var_name
+        )?;
+    }
+
+    for member_var in &class.vars {
+        if member_var.annotate {
+            writeln!(out, "{}@JsonProperty({:?})", indent, member_var.original_name)?;
+        }
+        writeln!(
+            out,
+            "{}public {} {}() {{ return {}; }}",
+            indent, member_var.type_name, member_var.getter_name, member_var.var_name
+        )?;
+        if member_var.annotate {
+            writeln!(out, "{}@JsonProperty({:?})", indent, member_var.original_name)?;
+        }
+        writeln!(
+            out,
+            "{}public void {}({} value) {{ this.{} = value; }}",
+            indent, member_var.setter_name, member_var.type_name, member_var.var_name
+        )?;
+    }
+
+    if class.needs_custom_serializer_deserializer {
+        // --- Custom Serializer ---
+        writeln!(
+            out,
+            "{}static class Serializer extends JsonSerializer<{}> {{",
+            indent, class_name
+        )?;
+        writeln!(
+            out,
+            "{}\t@Override public void serialize({} value, JsonGenerator gen, SerializerProvider serializers) throws IOException {{",
+            indent, class_name
+        )?;
+        writeln!(out, "{}\t\tgen.writeStartObject();", indent)?;
+
+        for var in &class.vars {
+            writeln!(out, "{}\t\tif (value.{} != null) {{", indent, var.var_name)?;
+            writeln!(
+                out,
+                "{}\t\t\tgen.writeFieldName({:?});",
+                indent, var.original_name
+            )?;
+            writeln!(
+                out,
+                "{}\t\t\tserializers.defaultSerializeValue(value.{}, gen);",
+                indent, var.var_name
+            )?;
+            writeln!(out, "{}\t\t}}", indent)?;
+        }
+
+        writeln!(out, "{}\t\tgen.writeEndObject();", indent)?;
+        writeln!(out, "{}\t}}", indent)?;
+        writeln!(out, "{}}}", indent)?;
+
+        // --- Custom Deserializer ---
+        writeln!(
+            out,
+            "{}static class Deserializer extends JsonDeserializer<{}> {{",
+            indent, class_name
+        )?;
+        writeln!(
+            out,
+            "{}\t@Override public {} deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {{",
+            indent, class_name
+        )?;
+        writeln!(
+            out,
+            "{}\t\t{} instance = new {}();",
+            indent, class_name, class_name
+        )?;
+        writeln!(
+            out,
+            "{}\t\twhile (p.nextToken() != JsonToken.END_OBJECT) {{",
+            indent
+        )?;
+        writeln!(out, "{}\t\t\tString fieldName = p.currentName();", indent)?;
+        writeln!(out, "{}\t\t\tp.nextToken();", indent)?;
+
+        writeln!(out, "{}\t\t\tif (fieldName == null) {{ continue; }}", indent)?;
+
+        for (i, var) in class.vars.iter().enumerate() {
+            let check = if i == 0 { "if" } else { "else if" };
+            writeln!(
+                out,
+                "{}\t\t\t{} ({:?}.equals(fieldName)) {{",
+                indent, check, var.original_name
+            )?;
+            writeln!(
+                out,
+                "{}\t\t\t\tinstance.{} = ctxt.readValue(p, {}.class);",
+                indent, var.var_name, var.type_name
+            )?;
+            writeln!(out, "{}\t\t\t}}", indent)?;
+        }
+
+        writeln!(out, "{}\t\t\telse {{ p.skipChildren(); }}", indent)?;
+        writeln!(out, "{}\t\t}}", indent)?;
+        writeln!(out, "{}\t\treturn instance;", indent)?;
+        writeln!(out, "{}\t}}", indent)?;
+        writeln!(out, "{}}}", indent)?;
+    }
+    Ok(())
+}
+
+fn write_union_body(
+    union: &Union,
+    union_name: &str,
+    indent: &str,
+    out: &mut dyn io::Write,
+) -> io::Result<()> {
+    for union_var in &union.vars {
+        writeln!(
+            out,
+            "{}public {} {};",
+            indent, union_var.type_name, union_var.var_name
+        )?;
+    }
+
+    // Serializer
+    writeln!(
+        out,
+        "{}static class Serializer extends JsonSerializer<{}> {{",
+        indent, union_name
+    )?;
+    writeln!(
+        out,
+        "{}\t@Override public void serialize({} value, JsonGenerator generator, SerializerProvider serializer) throws IOException {{",
+        indent, union_name
+    )?;
+    for union_var in &union.vars {
+        writeln!(
+            out,
+            "{}\t\tif (value.{} != null) {{ generator.writeObject(value.{}); return; }}",
+            indent, union_var.var_name, union_var.var_name
+        )?;
+    }
+    writeln!(out, "{}\t\tgenerator.writeNull();", indent)?;
+    writeln!(out, "{}\t}}", indent)?;
+    writeln!(out, "{}}}", indent)?;
+
+    // Deserializer
+    writeln!(
+        out,
+        "{}static class Deserializer extends JsonDeserializer<{}> {{",
+        indent, union_name
+    )?;
+    writeln!(
+        out,
+        "{}\t@Override public {} deserialize(JsonParser parser, DeserializationContext ctx) throws IOException {{",
+        indent, union_name
+    )?;
+    writeln!(
+        out,
+        "{}\t\t{} value = new {}();",
+        indent, union_name, union_name
+    )?;
+    writeln!(
+        out,
+        "{}\t\tswitch (parser.currentToken()) {{",
+        indent
+    )?;
+
+    writeln!(out, "{}\t\tcase VALUE_NULL: break;", indent)?;
+    for union_var in &union.vars {
+        match union_var.type_name.as_str() {
+            "String" => writeln!(
+                out,
+                "{}\t\tcase VALUE_STRING: value.{} = parser.readValueAs(String.class); break;",
+                indent, union_var.var_name
+            )?,
+            "Long" => writeln!(
+                out,
+                "{}\t\tcase VALUE_NUMBER_INT: value.{} = parser.readValueAs(Long.class); break;",
+                indent, union_var.var_name
+            )?,
+            "Double" => writeln!(
+                out,
+                "{}\t\tcase VALUE_NUMBER_FLOAT: value.{} = parser.readValueAs(Double.class); break;",
+                indent, union_var.var_name
+            )?,
+            "Boolean" => writeln!(
+                out,
+                "{}\t\tcase VALUE_TRUE: case VALUE_FALSE: value.{} = parser.readValueAs(Boolean.class); break;",
+                indent, union_var.var_name
+            )?,
+            _ if union_var.type_name.ends_with("[]") => writeln!(
+                out,
+                "{}\t\tcase START_ARRAY: value.{} = parser.readValueAs({}.class); break;",
+                indent, union_var.var_name, union_var.type_name
+            )?,
+            _ => writeln!(
+                out,
+                "{}\t\tcase START_OBJECT: value.{} = parser.readValueAs({}.class); break;",
+                indent, union_var.var_name, union_var.type_name
+            )?,
+        };
+    }
+    writeln!(
+        out,
+        "{}\t\tdefault: throw new IOException(\"Cannot deserialize {}\");",
+        indent, union_name
+    )?;
+    writeln!(out, "{}\t\t}}", indent)?;
+    writeln!(out, "{}\t\treturn value;", indent)?;
+    writeln!(out, "{}\t}}", indent)?;
+    writeln!(out, "{}}}", indent)?;
+    Ok(())
+}
+
 fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
-    if java
+    let mut needs_annotations = java
         .classes
         .iter()
         .flat_map(|c| &c.vars)
         .any(|v| v.annotate)
-        || matches!(java.root, RootType::Wrapper(_))
-    {
+        || matches!(java.root, RootStrategy::Wrapper(_));
+
+    if let RootStrategy::InlineClass(ref c) = java.root {
+        if c.vars.iter().any(|v| v.annotate) {
+            needs_annotations = true;
+        }
+    }
+
+    if needs_annotations {
         writeln!(out, "import com.fasterxml.jackson.annotation.*;")?;
     }
 
-    if !java.unions.is_empty()
+    let mut needs_jackson = !java.unions.is_empty()
         || java
             .classes
             .iter()
-            .any(|c| c.needs_custom_serializer_deserializer)
-    {
+            .any(|c| c.needs_custom_serializer_deserializer);
+
+    if let RootStrategy::InlineClass(ref c) = java.root {
+        if c.needs_custom_serializer_deserializer {
+            needs_jackson = true;
+        }
+    }
+    if matches!(java.root, RootStrategy::InlineUnion(_)) {
+        needs_jackson = true;
+    }
+
+    if needs_jackson {
         writeln!(out, "import com.fasterxml.jackson.core.*;")?;
         writeln!(out, "import com.fasterxml.jackson.databind.*;")?;
         writeln!(out, "import com.fasterxml.jackson.databind.annotation.*;")?;
         writeln!(out, "import java.io.IOException;")?;
     }
 
-    writeln!(out, "public class JsonCodeGen {{")?;
+    if let RootStrategy::InlineClass(ref c) = java.root {
+        if c.needs_custom_serializer_deserializer {
+            writeln!(out, "@JsonSerialize(using = JsonCodeGen.Serializer.class)")?;
+            writeln!(
+                out,
+                "@JsonDeserialize(using = JsonCodeGen.Deserializer.class)"
+            )?;
+        }
+    }
+    if let RootStrategy::InlineUnion(_) = java.root {
+        writeln!(out, "@JsonSerialize(using = JsonCodeGen.Serializer.class)")?;
+        writeln!(
+            out,
+            "@JsonDeserialize(using = JsonCodeGen.Deserializer.class)"
+        )?;
+    }
 
-    // class with name ROOT (SCREAMING_SNAKE_CASE)
-    // will never clash with other classes (PascalCase)
-    writeln!(out, "\t// entry point = ROOT")?;
-    match java.root {
-        RootType::Extension(base) => {
-            writeln!(out, "\tpublic static class ROOT extends {} {{}}", base)?;
+    match &java.root {
+        RootStrategy::Extension(base) => {
+            writeln!(out, "public class JsonCodeGen extends {} {{", base)?;
         }
-        RootType::Wrapper(inner) => {
-            writeln!(out, "\tpublic static class ROOT {{")?;
-            writeln!(out, "\t\tprivate final {} value;", inner)?;
-            writeln!(out, "\t\t@JsonCreator(mode = JsonCreator.Mode.DELEGATING)")?;
-            writeln!(out, "\t\tpublic ROOT({} value) {{ this.value = value; }}", inner)?;
-            writeln!(out, "\t\t@JsonValue")?;
-            writeln!(out, "\t\tpublic {} getValue() {{ return value; }}", inner)?;
-            writeln!(out, "\t}}")?;
+        _ => {
+            writeln!(out, "public class JsonCodeGen {{")?;
         }
+    }
+
+    match &java.root {
+        RootStrategy::InlineClass(class) => {
+            write_class_body(class, "JsonCodeGen", "\t", out)?;
+        }
+        RootStrategy::InlineUnion(union) => {
+            write_union_body(union, "JsonCodeGen", "\t", out)?;
+        }
+        RootStrategy::Wrapper(inner) => {
+            writeln!(out, "\tprivate final {} value;", inner)?;
+            writeln!(out, "\t@JsonCreator(mode = JsonCreator.Mode.DELEGATING)")?;
+            writeln!(
+                out,
+                "\tpublic JsonCodeGen({} value) {{ this.value = value; }}",
+                inner
+            )?;
+            writeln!(out, "\t@JsonValue")?;
+            writeln!(out, "\tpublic {} getValue() {{ return value; }}", inner)?;
+        }
+        RootStrategy::Extension(_) => {}
     }
 
     for class in java.classes {
@@ -365,113 +637,7 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
             )?;
         }
         writeln!(out, "\tpublic static class {} {{", class.name)?;
-        for member_var in &class.vars {
-            writeln!(
-                out,
-                "\t\tprivate {} {};",
-                member_var.type_name, member_var.var_name
-            )?;
-        }
-
-        for member_var in &class.vars {
-            if member_var.annotate {
-                writeln!(out, "\t\t@JsonProperty({:?})", member_var.original_name)?;
-            }
-            writeln!(
-                out,
-                "\t\tpublic {} {}() {{ return {}; }}",
-                member_var.type_name, member_var.getter_name, member_var.var_name
-            )?;
-            if member_var.annotate {
-                writeln!(out, "\t\t@JsonProperty({:?})", member_var.original_name)?;
-            }
-            writeln!(
-                out,
-                "\t\tpublic void {}({} value) {{ this.{} = value; }}",
-                member_var.setter_name, member_var.type_name, member_var.var_name
-            )?;
-        }
-
-        if class.needs_custom_serializer_deserializer {
-            // --- Custom Serializer ---
-            writeln!(
-                out,
-                "\t\tstatic class Serializer extends JsonSerializer<{}> {{",
-                class.name
-            )?;
-            writeln!(
-                out,
-                "\t\t\t@Override public void serialize({} value, JsonGenerator gen, SerializerProvider serializers) throws IOException {{",
-                class.name
-            )?;
-            writeln!(out, "\t\t\t\tgen.writeStartObject();")?;
-
-            for var in &class.vars {
-                writeln!(out, "\t\t\t\tif (value.{} != null) {{", var.var_name)?;
-                writeln!(
-                    out,
-                    "\t\t\t\t\tgen.writeFieldName({:?});",
-                    var.original_name
-                )?;
-                writeln!(
-                    out,
-                    "\t\t\t\t\tserializers.defaultSerializeValue(value.{}, gen);",
-                    var.var_name
-                )?;
-                writeln!(out, "\t\t\t\t}}")?;
-            }
-
-            writeln!(out, "\t\t\t\tgen.writeEndObject();")?;
-            writeln!(out, "\t\t\t}}")?;
-            writeln!(out, "\t\t}}")?;
-
-            // --- Custom Deserializer ---
-            writeln!(
-                out,
-                "\t\tstatic class Deserializer extends JsonDeserializer<{}> {{",
-                class.name
-            )?;
-            writeln!(
-                out,
-                "\t\t\t@Override public {} deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {{",
-                class.name
-            )?;
-            writeln!(
-                out,
-                "\t\t\t\t{} instance = new {}();",
-                class.name, class.name
-            )?;
-            writeln!(
-                out,
-                "\t\t\t\twhile (p.nextToken() != JsonToken.END_OBJECT) {{"
-            )?;
-            writeln!(out, "\t\t\t\t\tString fieldName = p.currentName();")?;
-            writeln!(out, "\t\t\t\t\tp.nextToken();")?;
-
-            writeln!(out, "\t\t\t\t\tif (fieldName == null) {{ continue; }}")?;
-
-            for (i, var) in class.vars.iter().enumerate() {
-                let check = if i == 0 { "if" } else { "else if" };
-                writeln!(
-                    out,
-                    "\t\t\t\t\t{} ({:?}.equals(fieldName)) {{",
-                    check, var.original_name
-                )?;
-                writeln!(
-                    out,
-                    "\t\t\t\t\t\tinstance.{} = ctxt.readValue(p, {}.class);",
-                    var.var_name, var.type_name
-                )?;
-                writeln!(out, "\t\t\t\t\t}}")?;
-            }
-
-            writeln!(out, "\t\t\t\t\telse {{ p.skipChildren(); }}")?;
-            writeln!(out, "\t\t\t\t}}")?;
-            writeln!(out, "\t\t\t\treturn instance;")?;
-            writeln!(out, "\t\t\t}}")?;
-            writeln!(out, "\t\t}}")?;
-        }
-
+        write_class_body(&class, &class.name, "\t\t", out)?;
         writeln!(out, "\t}}")?;
     }
 
@@ -487,95 +653,7 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
             union.name
         )?;
         writeln!(out, "\tpublic static class {} {{", union.name)?;
-
-        for union_var in &union.vars {
-            writeln!(
-                out,
-                "\t\tpublic {} {};",
-                union_var.type_name, union_var.var_name
-            )?;
-        }
-
-        // Serializer
-        writeln!(
-            out,
-            "\t\tstatic class Serializer extends JsonSerializer<{}> {{",
-            union.name
-        )?;
-        writeln!(
-            out,
-            "\t\t\t@Override public void serialize({} value, JsonGenerator generator, SerializerProvider serializer) throws IOException {{",
-            union.name
-        )?;
-        for union_var in &union.vars {
-            writeln!(
-                out,
-                "\t\t\t\tif (value.{} != null) {{ generator.writeObject(value.{}); return; }}",
-                union_var.var_name, union_var.var_name
-            )?;
-        }
-        writeln!(out, "\t\t\t\tgenerator.writeNull();")?;
-        writeln!(out, "\t\t\t}}")?;
-        writeln!(out, "\t\t}}")?;
-
-        // Deserializer
-        writeln!(
-            out,
-            "\t\tstatic class Deserializer extends JsonDeserializer<{}> {{",
-            union.name
-        )?;
-        writeln!(
-            out,
-            "\t\t\t@Override public {} deserialize(JsonParser parser, DeserializationContext ctx) throws IOException {{",
-            union.name
-        )?;
-        writeln!(out, "\t\t\t\t{} value = new {}();", union.name, union.name)?;
-        writeln!(out, "\t\t\t\tswitch (parser.currentToken()) {{")?;
-
-        writeln!(out, "\t\t\t\tcase VALUE_NULL: break;")?;
-        for union_var in &union.vars {
-            match union_var.type_name.as_str() {
-                "String" => writeln!(
-                    out,
-                    "\t\t\t\tcase VALUE_STRING: value.{} = parser.readValueAs(String.class); break;",
-                    union_var.var_name
-                )?,
-                "Long" => writeln!(
-                    out,
-                    "\t\t\t\tcase VALUE_NUMBER_INT: value.{} = parser.readValueAs(Long.class); break;",
-                    union_var.var_name
-                )?,
-                "Double" => writeln!(
-                    out,
-                    "\t\t\t\tcase VALUE_NUMBER_FLOAT: value.{} = parser.readValueAs(Double.class); break;",
-                    union_var.var_name
-                )?,
-                "Boolean" => writeln!(
-                    out,
-                    "\t\t\t\tcase VALUE_TRUE: case VALUE_FALSE: value.{} = parser.readValueAs(Boolean.class); break;",
-                    union_var.var_name
-                )?,
-                _ if union_var.type_name.ends_with("[]") => writeln!(
-                    out,
-                    "\t\t\t\tcase START_ARRAY: value.{} = parser.readValueAs({}.class); break;",
-                    union_var.var_name, union_var.type_name
-                )?,
-                _ => writeln!(
-                    out,
-                    "\t\t\t\tcase START_OBJECT: value.{} = parser.readValueAs({}.class); break;",
-                    union_var.var_name, union_var.type_name
-                )?,
-            };
-        }
-        writeln!(
-            out,
-            "\t\t\t\tdefault: throw new IOException(\"Cannot deserialize {}\");",
-            union.name
-        )?;
-        writeln!(out, "\t\t\t\t}}")?;
-        writeln!(out, "\t\t\t\treturn value;")?;
-        writeln!(out, "\t\t\t}}")?;
-        writeln!(out, "\t\t}}")?;
+        write_union_body(&union, &union.name, "\t\t", out)?;
         writeln!(out, "\t}}")?;
     }
 

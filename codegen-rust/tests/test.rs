@@ -71,7 +71,7 @@ async fn run_test<P: AsRef<Path>>(input: P) {
             &format!("{}:/data/output.json", output.display()),
             "-w",
             "/workspace",
-            "rust:latest",
+            "docker.io/library/rust:latest",
             "bash",
             "-lc",
             "set -e; /usr/local/cargo/bin/cargo run --quiet < /data/input.json > /data/output.json;",

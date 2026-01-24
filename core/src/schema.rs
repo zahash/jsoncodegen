@@ -8,9 +8,7 @@
 //!
 //! ### [`Schema`]
 //!
-//! The top-level schema representation can be either:
-//! - **Object**: A JSON object with named fields `{name:str,age:int}`
-//! - **Array**: A JSON array with homogeneous or heterogeneous elements `[float]`
+//! The top-level schema representation wrapping a single [`FieldType`].
 //!
 //! ### [`Field`]
 //!
@@ -79,13 +77,10 @@
 use serde_json::{Map, Value};
 use std::fmt::Display;
 
-/// Top-level schema: either an Object with fields or an Array with element type.
-///
-/// Fields are sorted alphabetically for canonical representation.
+/// Top-level schema wrapping the inferred type.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Schema {
-    Object(Vec<Field>),
-    Array(FieldType),
+pub struct Schema {
+    pub ty: FieldType,
 }
 
 /// A named field within an object type.
@@ -114,19 +109,11 @@ pub enum FieldType {
 
 impl From<Value> for Schema {
     fn from(json: Value) -> Self {
-        let mut schema = match json {
-            Value::Array(arr) => Self::Array(array(arr)),
-            Value::Object(obj) => Self::Object(object(obj)),
-            _ => unreachable!("Valid top level Value will always be object or array"),
-        };
+        let mut field_type = field_type(json);
+        // recursively sort field_type to make sure it has a deterministic order
+        sort_field_type(&mut field_type);
 
-        // sort schema to make sure it has a deterministic order
-        match &mut schema {
-            Schema::Object(fields) => sort_fields(fields),
-            Schema::Array(field_type) => sort_field_type(field_type),
-        }
-
-        schema
+        Schema { ty: field_type }
     }
 }
 
@@ -525,10 +512,7 @@ fn field_type(value: Value) -> FieldType {
 
 impl Display for Schema {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Schema::Object(fields) => write!(f, "{{{}}}", FieldsDisp(fields)),
-            Schema::Array(field_type) => write!(f, "[{}]", field_type),
-        }
+        write!(f, "{}", self.ty)
     }
 }
 

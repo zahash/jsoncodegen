@@ -18,6 +18,20 @@ static M2: LazyLock<PathBuf> = LazyLock::new(|| {
     path
 });
 
+static EXPECTED_FAILURES: &[&str] = &[
+    "case-collision-mixed",
+    "empty-key-collision",
+    "field-case-collision",
+    "field-fallback-collision",
+    "java-keyword-field-case",
+    "numeric-key-collision",
+    "reserved-method-clone",
+    "reserved-method-getclass",
+    "reserved-method-tostring",
+    "special-char-collision",
+    "union-variant-collision",
+];
+
 #[tokio::test]
 async fn test_all() {
     let n_parallel = std::thread::available_parallelism()
@@ -39,6 +53,8 @@ async fn run_test<P: AsRef<Path>>(input_filepath: P) {
         .expect("Missing file stem")
         .to_str()
         .expect("Invalid UTF-8 in filename");
+
+    let expected_failure = EXPECTED_FAILURES.contains(&name);
 
     println!("Running test: {}", name);
 
@@ -96,6 +112,16 @@ async fn run_test<P: AsRef<Path>>(input_filepath: P) {
         .unwrap_or_else(|_| "<failed to read>".to_string());
     let input_content =
         fs::read_to_string(input_filepath).unwrap_or_else(|_| "<failed to read>".to_string());
+
+    if expected_failure {
+        assert!(
+            !cmd_output.status.success(),
+            "Docker succeeded but expected failure for: {name}\n\n--- input.json ---\n{input_content}\n\n--- JsonCodeGen.java ---\n{generated_code}\n\n--- stdout ---\n{}\n--- stderr ---\n{}",
+            String::from_utf8_lossy(&cmd_output.stdout),
+            String::from_utf8_lossy(&cmd_output.stderr)
+        );
+        return;
+    }
 
     assert!(
         cmd_output.status.success(),

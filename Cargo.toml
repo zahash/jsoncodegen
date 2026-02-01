@@ -5,7 +5,7 @@ members = [
     "codegen-java",
     "codegen-rust",
     "core",
-    "iota",
+    "iota", "test-macro",
     "test-utils",
     "utils",
     "wasm-serve",

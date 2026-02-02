@@ -35,7 +35,7 @@ lto = true
 codegen-units = 1
 strip = true
 
-# on WSL2 Debian, /tmp dir might not have sufficient space.
+# on Debian, /tmp dir might not have sufficient space.
 # df -h                                   # check available space
 # sudo mount -o remount,size=10G /tmp     # resize /tmp to have 10G
 

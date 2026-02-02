@@ -19,34 +19,27 @@ async fn run_test<P: AsRef<Path>>(input_filepath: P) {
         .to_str()
         .expect("Invalid UTF-8 in filename");
 
-    println!("Running test: {}", name);
-
-    let root_dir = env::temp_dir().join(env!("CARGO_PKG_NAME"));
-    fs::create_dir_all(&root_dir).expect(&format!("Failed to create root dir :: {:?}", &root_dir));
-
-    let output_dir = root_dir.join("output");
-    fs::create_dir_all(&output_dir)
-        .expect(&format!("Failed to create output dir :: {:?}", output_dir));
-
-    let output_filepath =
-        output_dir.join(input_filepath.file_name().expect("Missing input file name"));
-    fs::File::create(&output_filepath).expect("Failed to create output file");
-
-    let harness = root_dir.join("harness").join(name);
-    fs::create_dir_all(&harness).expect("Failed to create harness directory");
+    let workspace_dir = env::temp_dir().join(env!("CARGO_PKG_NAME")).join(name);
+    fs::create_dir_all(&workspace_dir).expect(&format!(
+        "Failed to create workspace directory :: {:?}",
+        workspace_dir
+    ));
 
     copy_dir_all(
         &PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
             .join("template"),
-        &harness,
+        &workspace_dir,
     )
     .expect("Failed to copy template");
+
+    let output_filepath = workspace_dir.join("output.json");
+    fs::File::create(&output_filepath).expect("Failed to create output file");
 
     codegen(
         serde_json::from_reader(fs::File::open(input_filepath).expect("Failed to open input file"))
             .expect("Failed to parse input JSON"),
-        &mut fs::File::create(harness.join("src").join("generated.rs"))
+        &mut fs::File::create(workspace_dir.join("src").join("generated.rs"))
             .expect("Failed to create generated.rs"),
     )
     .expect("Failed to run codegen");
@@ -57,7 +50,7 @@ async fn run_test<P: AsRef<Path>>(input_filepath: P) {
     let cmd_output = Command::new("docker")
         .args([
             "run", "--rm",
-            "-v", &format!("{}:/workspace", harness.display()),
+            "-v", &format!("{}:/workspace", workspace_dir.display()),
             "-v", &format!("{}:/data/input.json:ro", input_filepath.display()),
             "-v", &format!("{}:/data/output.json", output_filepath.display()),
             "-w", "/workspace",
@@ -70,7 +63,7 @@ async fn run_test<P: AsRef<Path>>(input_filepath: P) {
         .await
         .expect("Failed to run Docker container");
 
-    let generated_code = fs::read_to_string(harness.join("src").join("generated.rs"))
+    let generated_code = fs::read_to_string(workspace_dir.join("src").join("generated.rs"))
         .unwrap_or_else(|_| "<failed to read>".to_string());
     let input_content =
         fs::read_to_string(input_filepath).unwrap_or_else(|_| "<failed to read>".to_string());
@@ -94,4 +87,9 @@ async fn run_test<P: AsRef<Path>>(input_filepath: P) {
         json_equiv(&output_json, &expected_json),
         "Mismatch for: {name}\n\nExpected:\n{expected_json:#?}\n\nActual:\n{output_json:#?}"
     );
+
+    // TODO: workspace_dir doesn't get removed if there is a panic in above lines of code
+    if let Err(e) = fs::remove_dir_all(workspace_dir) {
+        eprintln!("{:?}", e);
+    }
 }

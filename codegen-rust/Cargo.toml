@@ -16,12 +16,7 @@ jsoncodegen = { path = "../core" }
 
 [dev-dependencies]
 serde_json = "1"
-tokio = { version = "1", features = [
-    "fs",
-    "macros",
-    "process",
-    "rt-multi-thread",
-] }
+tokio = { version = "1", features = ["macros", "process", "rt-multi-thread"] }
 
 jsoncodegen-test-macro = { path = "../test-macro" }
 jsoncodegen-test-utils = { path = "../test-utils" }

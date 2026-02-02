@@ -15,9 +15,9 @@ unicode-general-category = "1"
 jsoncodegen = { path = "../core" }
 
 [dev-dependencies]
-futures = "0.3"
 pretty_assertions = "1"
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "process", "rt-multi-thread"] }
 
+jsoncodegen-test-macro = { path = "../test-macro" }
 jsoncodegen-test-utils = { path = "../test-utils" }

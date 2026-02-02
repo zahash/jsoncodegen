@@ -1,8 +1,5 @@
 use serde_json::Value;
-use std::{
-    env, fs, io,
-    path::{Path, PathBuf},
-};
+use std::{fs, io, path::Path};
 
 /// Check semantic equivalence of two JSON values.
 /// Treats `null` values as equivalent to absent fields in objects.
@@ -57,20 +54,4 @@ pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<
         }
     }
     Ok(())
-}
-
-/// Collect all JSON test files from the TEST_DATA directory.
-pub fn collect_test_files() -> Vec<PathBuf> {
-    fs::read_dir(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("Failed to get parent directory of CARGO_MANIFEST_DIR")
-            .join("test-data"),
-    )
-    .expect("Failed to read test-data directory")
-    .filter_map(|entry| {
-        let path = entry.ok()?.path();
-        (path.extension()? == "json").then_some(path)
-    })
-    .collect()
 }

@@ -1,6 +1,6 @@
-use futures::StreamExt;
 use jsoncodegen_rust::codegen;
-use jsoncodegen_test_utils::{collect_test_files, copy_dir_all, json_equiv};
+use jsoncodegen_test_macro::generate_tests;
+use jsoncodegen_test_utils::{copy_dir_all, json_equiv};
 use serde_json::Value;
 use tokio::process::Command;
 
@@ -9,19 +9,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[tokio::test]
-async fn test_all() {
-    let n_parallel = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1);
-
-    futures::stream::iter(collect_test_files().into_iter().map(|input| async move {
-        run_test(input).await;
-    }))
-    .buffer_unordered(n_parallel)
-    .for_each(|_| async {})
-    .await;
-}
+generate_tests!("test-data");
 
 async fn run_test<P: AsRef<Path>>(input_filepath: P) {
     let input_filepath = input_filepath.as_ref();

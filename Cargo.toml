@@ -6,6 +6,7 @@ members = [
     "codegen-rust",
     "core",
     "iota",
+    "test-macro",
     "test-utils",
     "utils",
     "wasm-serve",

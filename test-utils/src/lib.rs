@@ -9,7 +9,7 @@ use std::{
 use tokio::process::Command;
 
 #[derive(Deserialize, Debug)]
-pub struct Manifest {
+pub struct TestConfig {
     pub template: Template,
     pub docker: Docker,
 }
@@ -33,7 +33,7 @@ pub struct Mount {
     pub target: PathBuf,
 }
 
-pub async fn test<F, P>(manifest: &Manifest, codegen: F, input_filepath: P)
+pub async fn test<F, P>(test_config: &TestConfig, codegen: F, input_filepath: P)
 where
     F: FnOnce(Value, &mut dyn io::Write) -> io::Result<()>,
     P: AsRef<Path>,
@@ -52,9 +52,9 @@ where
         workspace_dir
     ));
 
-    copy_dir_all(&manifest.template.dir, &workspace_dir).expect(&format!(
+    copy_dir_all(&test_config.template.dir, &workspace_dir).expect(&format!(
         "Failed to copy template :: {}",
-        manifest.template.dir.display()
+        test_config.template.dir.display()
     ));
 
     let output_filepath = workspace_dir.join("output.json");
@@ -65,7 +65,7 @@ where
     ))
     .expect("Failed to parse input JSON");
 
-    let codegen_output_filepath = workspace_dir.join(&manifest.template.codegen_output);
+    let codegen_output_filepath = workspace_dir.join(&test_config.template.codegen_output);
     let mut output_file = fs::File::create(&codegen_output_filepath).expect(&format!(
         "Failed to create file :: {}",
         codegen_output_filepath.display()
@@ -86,10 +86,10 @@ where
             "-v", &format!("{}:/workspace", workspace_dir.display()),
             "-v", &format!("{}:{}:ro", input_filepath.display(), CNT_INPUT),
             "-v", &format!("{}:{}", output_filepath.display(), CNT_OUTPUT),
-            "-v", &format!("{}:{}:ro", &manifest.docker.script.display(), CNT_SCRIPT),
+            "-v", &format!("{}:{}:ro", &test_config.docker.script.display(), CNT_SCRIPT),
             ]);
 
-    for mount in &manifest.docker.mounts {
+    for mount in &test_config.docker.mounts {
         command.args([
             "-v",
             &format!("{}:{}", mount.source.display(), mount.target.display()),
@@ -99,7 +99,7 @@ where
     #[rustfmt::skip]
     command.args([
         "-w", "/workspace",
-        &&manifest.docker.image,
+        &&test_config.docker.image,
     ]);
 
     command.arg("bash");

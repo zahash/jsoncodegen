@@ -1,6 +1,6 @@
 use jsoncodegen_java::codegen;
 use jsoncodegen_test_macro::fixture;
-use jsoncodegen_test_utils::{Docker, Manifest, Mount, Template};
+use jsoncodegen_test_utils::{Docker, Mount, Template, TestConfig};
 
 use std::{
     env,
@@ -8,10 +8,10 @@ use std::{
     sync::LazyLock,
 };
 
-static MANIFEST: LazyLock<Manifest> = LazyLock::new(|| {
+static TEST_CONFIG: LazyLock<TestConfig> = LazyLock::new(|| {
     let crate_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    Manifest {
+    TestConfig {
         template: Template {
             dir: crate_root.join("tests").join("template"),
             codegen_output: PathBuf::from("src").join("JsonCodeGen.java"),
@@ -33,5 +33,5 @@ static MANIFEST: LazyLock<Manifest> = LazyLock::new(|| {
 
 #[fixture("../test-data/**/*.json")]
 async fn java_test<P: AsRef<Path>>(input_filepath: P) {
-    jsoncodegen_test_utils::test(&MANIFEST, codegen, &input_filepath).await;
+    jsoncodegen_test_utils::test(&TEST_CONFIG, codegen, &input_filepath).await;
 }

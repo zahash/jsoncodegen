@@ -1,3 +1,4 @@
+use jsoncodegen::{schema::Schema, type_graph::TypeGraph};
 use serde::Deserialize;
 use serde_json::Value;
 use std::{
@@ -59,19 +60,18 @@ where
     let output_filepath = workspace_dir.join("output.json");
     fs::File::create(&output_filepath).expect("Failed to create output file");
 
+    let input_json_value: Value = serde_json::from_reader(fs::File::open(input_filepath).expect(
+        &format!("Failed to open input file :: {}", input_filepath.display()),
+    ))
+    .expect("Failed to parse input JSON");
+
     let codegen_output_filepath = workspace_dir.join(&manifest.template.codegen_output);
-    codegen(
-        serde_json::from_reader(fs::File::open(input_filepath).expect(&format!(
-            "Failed to open input file :: {}",
-            input_filepath.display()
-        )))
-        .expect("Failed to parse input JSON"),
-        &mut fs::File::create(&codegen_output_filepath).expect(&format!(
-            "Failed to create file :: {}",
-            codegen_output_filepath.display()
-        )),
-    )
-    .expect("Failed to run codegen");
+    let mut output_file = fs::File::create(&codegen_output_filepath).expect(&format!(
+        "Failed to create file :: {}",
+        codegen_output_filepath.display()
+    ));
+
+    codegen(input_json_value.clone(), &mut output_file).expect("Failed to run codegen");
 
     const CNT_INPUT: &str = "/input.json";
     const CNT_OUTPUT: &str = "/output.json";
@@ -116,25 +116,46 @@ where
     let input_content =
         fs::read_to_string(input_filepath).unwrap_or_else(|_| "<failed to read>".to_string());
 
-    assert!(
-        cmd_output.status.success(),
-        "Run failed for: {name}\n\n--- input.json ---\n{input_content}\n\n--- {} ---\n{generated_code}\n\n--- stdout ---\n{}\n--- stderr ---\n{}",
-        codegen_output_filepath.display(),
-        String::from_utf8_lossy(&cmd_output.stdout),
-        String::from_utf8_lossy(&cmd_output.stderr)
-    );
+    if !cmd_output.status.success() {
+        let schema = Schema::from(input_json_value.clone());
+        let type_graph = TypeGraph::from(schema.clone());
 
-    let output_json: Value = serde_json::from_reader(
+        let codegen_output_filepath = codegen_output_filepath.display();
+
+        let stdout = String::from_utf8_lossy(&cmd_output.stdout);
+        let stderr = String::from_utf8_lossy(&cmd_output.stderr);
+
+        panic!(
+            "Run failed for: {name}\n\n\
+            --- input.json ---\n\
+            {input_content}\n\n\
+            --- schema ---\n\
+            {schema}\n\n\
+            {schema:#?}\n\n\
+            --- type graph ---\n\
+            {type_graph}\n\n\
+            {type_graph:#?}\n\n\
+            --- {codegen_output_filepath} ---\n\
+            {generated_code}\n\n\
+            --- stdout ---\n\
+            {stdout}\n\n\
+            --- stderr ---\n\
+            {stderr}",
+        );
+    }
+
+    let output_json_value: Value = serde_json::from_reader(
         fs::File::open(&output_filepath).expect("Failed to open output file"),
     )
     .expect("Failed to parse output JSON");
-    let expected_json: Value =
-        serde_json::from_reader(fs::File::open(input_filepath).expect("Failed to open input file"))
-            .expect("Failed to parse expected JSON");
 
     assert!(
-        json_equiv(&output_json, &expected_json),
-        "Mismatch for: {name}\n\nExpected:\n{expected_json:#?}\n\nActual:\n{output_json:#?}"
+        json_equiv(&output_json_value, &input_json_value),
+        "Mismatch for: {name}\n\n\
+         --- expected ---\n\
+         {input_json_value:#?}\n\n\
+         --- actual ---\n\
+         {output_json_value:#?}"
     );
 
     // TODO: workspace_dir doesn't get removed if there is a panic in above lines of code

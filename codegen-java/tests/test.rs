@@ -31,7 +31,7 @@ static MANIFEST: LazyLock<Manifest> = LazyLock::new(|| {
     }
 });
 
-#[fixture("../test-data/*.json")]
+#[fixture("../test-data/**/*.json")]
 async fn java_test<P: AsRef<Path>>(input_filepath: P) {
     jsoncodegen_test_utils::test(&MANIFEST, codegen, &input_filepath).await;
 }

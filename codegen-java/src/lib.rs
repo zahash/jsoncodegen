@@ -617,18 +617,28 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
         for (token, vars) in variants_by_token {
             writeln!(out, "\t\t\t\tcase {}:", token)?;
 
-            // If multiple variants match the same token, we just pick the first one
-            // because strict structural matching is hard without discriminators.
-            // This prevents the duplicate case label error.
-            if let Some(first_var) = vars.first() {
-                let read_expr = match first_var.type_name.as_str() {
-                    "String" => "parser.readValueAs(String.class)",
-                    "Long" => "parser.readValueAs(Long.class)",
-                    "Double" => "parser.readValueAs(Double.class)",
-                    "Boolean" => "parser.readValueAs(Boolean.class)",
-                    _ => &format!("parser.readValueAs({}.class)", first_var.type_name),
-                };
-                writeln!(out, "\t\t\t\t\tvalue.{} = {};", first_var.var_name, read_expr)?;
+            if vars.len() > 1 && (token == "START_OBJECT" || token == "START_ARRAY") {
+                // Ambiguous union: deserialize as tree and try mapping to each variant
+                writeln!(out, "\t\t\t\t\tJsonNode tree = parser.readValueAsTree();")?;
+                writeln!(out, "\t\t\t\t\tObjectMapper mapper = (ObjectMapper) parser.getCodec();")?;
+
+                for union_var in vars {
+                    writeln!(out, "\t\t\t\t\ttry {{")?;
+                    writeln!(out, "\t\t\t\t\t\tvalue.{} = mapper.treeToValue(tree, {}.class);", union_var.var_name, union_var.type_name)?;
+                    writeln!(out, "\t\t\t\t\t\tbreak;")?;
+                    writeln!(out, "\t\t\t\t\t}} catch (Exception e) {{}}")?;
+                }
+            } else {
+                if let Some(first_var) = vars.first() {
+                    let read_expr = match first_var.type_name.as_str() {
+                        "String" => "parser.readValueAs(String.class)",
+                        "Long" => "parser.readValueAs(Long.class)",
+                        "Double" => "parser.readValueAs(Double.class)",
+                        "Boolean" => "parser.readValueAs(Boolean.class)",
+                        _ => &format!("parser.readValueAs({}.class)", first_var.type_name),
+                    };
+                    writeln!(out, "\t\t\t\t\tvalue.{} = {};", first_var.var_name, read_expr)?;
+                }
             }
             writeln!(out, "\t\t\t\t\tbreak;")?;
         }

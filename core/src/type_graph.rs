@@ -173,6 +173,9 @@ use crate::{
 /// Type identifier for referencing types within the graph.
 pub type TypeId = usize;
 
+// TODO: make root and nodes private in type_graph and have methods
+// like .root() and .get_type_def(type_id) instead
+
 /// Type graph: root [`TypeId`] + map of [`TypeId`] to [`TypeDef`].
 ///
 /// Types reference each other via TypeId, enabling recursive structures.
@@ -242,21 +245,22 @@ impl<'type_graph> Iterator for TypeGraphIter<'type_graph> {
     type Item = (TypeId, &'type_graph TypeDef);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(type_id) = self.frontier.pop_front()
-            && self.visited.insert(type_id)
-            && let Some(type_def) = self.type_graph.nodes.get(&type_id)
-        {
-            match type_def {
-                TypeDef::Object(object_fields) => self
-                    .frontier
-                    .extend(object_fields.iter().map(|field| field.type_id)),
-                TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) => {
-                    self.frontier.push_back(*inner_type_id)
+        while let Some(type_id) = self.frontier.pop_front() {
+            if self.visited.insert(type_id) {
+                if let Some(type_def) = self.type_graph.nodes.get(&type_id) {
+                    match type_def {
+                        TypeDef::Object(object_fields) => self
+                            .frontier
+                            .extend(object_fields.iter().map(|field| field.type_id)),
+                        TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) => {
+                            self.frontier.push_back(*inner_type_id)
+                        }
+                        TypeDef::Union(inner_type_ids) => self.frontier.extend(inner_type_ids),
+                        _ => { /* no-op */ }
+                    };
+                    return Some((type_id, type_def));
                 }
-                TypeDef::Union(inner_type_ids) => self.frontier.extend(inner_type_ids),
-                _ => { /* no-op */ }
-            };
-            return Some((type_id, type_def));
+            }
         }
 
         None

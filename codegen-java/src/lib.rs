@@ -1,4 +1,7 @@
-use std::io;
+use std::{
+    collections::{BTreeSet, VecDeque},
+    io,
+};
 
 use convert_case::{Case, Casing};
 use jsoncodegen::{
@@ -88,20 +91,34 @@ impl From<serde_json::Value> for Java {
             };
         }
 
-        // TODO: instead of iterating through type_graph.nodes
-        // and processing TypeDef::Object and TypeDef::Union,
-        // do a bfs traversal (starting from root type_id)
-        // of all TypeIds that are either
-        // TypeDef::Object or TypeDef::Union
-        // This way, the root struct will always be on top
-        // and determining the root type name is much simpler
-        //
         // TODO: to avoid case-insensitive name clash with ROOT,
         // try to inline the root type in the top level JsonCodeGen
-        for (type_id, type_def) in &type_graph.nodes {
+
+        let mut queue = VecDeque::from([type_graph.root]);
+        let mut visited = BTreeSet::new();
+        while let Some(type_id) = queue.pop_front() {
+            if !visited.insert(type_id) {
+                continue;
+            }
+
+            let Some(type_def) = type_graph.nodes.get(&type_id) else {
+                continue;
+            };
+
+            match type_def {
+                TypeDef::Array(inner_id) | TypeDef::Optional(inner_id) => {
+                    queue.push_back(*inner_id)
+                }
+                TypeDef::Object(object_fields) => {
+                    queue.extend(object_fields.iter().map(|field| field.type_id))
+                }
+                TypeDef::Union(inner_ids) => queue.extend(inner_ids),
+                _ => { /* no-op */ }
+            }
+
             if let TypeDef::Object(object_fields) = type_def {
                 let class_name = name_registry
-                    .assigned_name(*type_id)
+                    .assigned_name(type_id)
                     .map(|ident| ident.to_case(Case::Pascal))
                     .unwrap_or_else(|| format!("Type{}", type_id));
 
@@ -149,7 +166,7 @@ impl From<serde_json::Value> for Java {
 
             if let TypeDef::Union(inner_type_ids) = type_def {
                 let class_name = name_registry
-                    .assigned_name(*type_id)
+                    .assigned_name(type_id)
                     .map(|ident| ident.to_case(Case::Pascal))
                     .unwrap_or_else(|| format!("Type{}", type_id));
 

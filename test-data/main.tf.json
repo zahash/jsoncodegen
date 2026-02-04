@@ -1,0 +1,38 @@
+{
+  "provider": {
+    "aws": {
+      "region": "us-west-2"
+    }
+  },
+  "resource": {
+    "aws_instance": {
+      "web": {
+        "ami": "ami-12345678",
+        "instance_type": "t2.micro",
+        "tags": {
+          "Name": "HelloWorld"
+        }
+      }
+    },
+    "aws_s3_bucket": {
+      "b": {
+        "bucket": "my-tf-test-bucket",
+        "acl": "private",
+        "tags": {
+          "Name": "My bucket",
+          "Environment": "Dev"
+        }
+      }
+    }
+  },
+  "variable": {
+    "region": {
+      "default": "us-east-1"
+    }
+  },
+  "output": {
+    "ip": {
+      "value": "${aws_instance.web.public_ip}"
+    }
+  }
+}

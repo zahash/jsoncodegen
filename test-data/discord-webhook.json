@@ -1,0 +1,35 @@
+{
+  "content": "Hello! Here is a webhook message.",
+  "username": "Webhook Bot",
+  "avatar_url": "https://i.imgur.com/4M34hi2.png",
+  "embeds": [
+    {
+      "title": "Rich Content",
+      "description": "This is an embed with a lot of features.",
+      "url": "https://discord.com",
+      "color": 5814783,
+      "fields": [
+        {
+          "name": "Field 1",
+          "value": "Some value here",
+          "inline": true
+        },
+        {
+          "name": "Field 2",
+          "value": "Another value here",
+          "inline": true
+        }
+      ],
+      "author": {
+        "name": "Discord",
+        "url": "https://discord.com",
+        "icon_url": "https://i.imgur.com/R66g1Pe.jpg"
+      },
+      "footer": {
+        "text": "Footer text",
+        "icon_url": "https://i.imgur.com/fKL31aD.jpg"
+      },
+      "timestamp": "2023-01-01T12:00:00.000Z"
+    }
+  ]
+}

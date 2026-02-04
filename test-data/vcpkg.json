@@ -1,0 +1,22 @@
+{
+  "name": "zlib",
+  "version-string": "1.2.13",
+  "description": "A Massively Spiffy Yet Delicately Unobtrusive Compression Library",
+  "homepage": "https://zlib.net/",
+  "license": "Zlib",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ],
+  "features": {
+    "minizip": {
+      "description": "Build minizip contrib library"
+    }
+  }
+}

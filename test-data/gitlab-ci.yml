@@ -1,0 +1,41 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .npm/
+
+build_job:
+  stage: build
+  image: node:16
+  script:
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+
+test_job:
+  stage: test
+  image: node:16
+  script:
+    - npm ci
+    - npm test
+  dependencies:
+    - build_job
+
+deploy_prod:
+  stage: deploy
+  image: ruby:latest
+  script:
+    - gem install dpl
+    - dpl --provider=heroku --app=my-app-prod --api-key=$HEROKU_API_KEY
+  only:
+    - main

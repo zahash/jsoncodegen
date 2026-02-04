@@ -1,0 +1,36 @@
+lockfileVersion: 5.4
+
+specifiers:
+  is-positive: ^1.0.0
+
+dependencies:
+  is-positive: 1.0.0
+
+packages:
+
+  /is-positive/1.0.0:
+    resolution: {integrity: sha512-xxZVvo455bnjYWvUQRUwdziykX8Gq7VJK6S9s4qDksXGi1qkqhW8Ixs54Hl995v09/Y+9sl4q0j1X0E/8l9Kkg==}
+    engines: {node: '>=0.10.0'}
+    dev: false
+
+  /lodash/4.17.21:
+    resolution: {integrity: sha512-v2kDEe57lecTmWbTH7BtXCLk+AC5rZEXxujltpD/FquqDWqBimJO79itemzFCnKSgT2rXhJOZvv41xImYMEIXQ==}
+    dev: false
+
+  /react/18.2.0:
+    resolution: {integrity: sha512-/3IjMdb2L9qbBST1Opv7jTbuobSnI+CkUcktZhCVqJKnLInWxQxK7Y6+D+9x6qgHAwXeZQwUqgLNPE1dD9UiNw==}
+    engines: {node: '>=0.10.0'}
+    dependencies:
+      loose-envify: 1.4.0
+    dev: false
+
+  /loose-envify/1.4.0:
+    resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zPTmVwuDNpeuLBanhGmTe4UHqJKMSrFMQSaWAoUN4SW93atVcKQTIFTEH1E1Q==}
+    hasBin: true
+    dependencies:
+      js-tokens: 4.0.0
+    dev: false
+
+  /js-tokens/4.0.0:
+    resolution: {integrity: sha512-RdJUflZZEHKMYb42BJ7Wh17R7rZQltxRRN4YHAZQsk4Wh3OyX0ZFvoJ8Q9UYbl56nzLH9nBf7E3dl8kwQ3MZag==}
+    dev: false

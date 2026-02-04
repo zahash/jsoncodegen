@@ -1,0 +1,14 @@
+{
+  "debug": true,
+  "tls": true,
+  "tlscacert": "/var/docker/ca.pem",
+  "tlscert": "/var/docker/cert.pem",
+  "tlskey": "/var/docker/key.pem",
+  "hosts": ["tcp://192.168.59.3:2376"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "storage-driver": "overlay2"
+}

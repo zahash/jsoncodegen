@@ -1,0 +1,29 @@
+{
+  "attributes": {
+    "title": "My Dashboard",
+    "hits": 0,
+    "description": "",
+    "panelsJSON": "[{\"gridData\":{\"w\":24,\"h\":15,\"x\":0,\"y\":0,\"i\":\"1\"},\"version\":\"7.3.0\",\"panelIndex\":\"1\",\"embeddableConfig\":{},\"panelRefName\":\"panel_0\"}]",
+    "optionsJSON": "{\"darkTheme\":false,\"useMargins\":true,\"hidePanelTitles\":false}",
+    "version": 1,
+    "timeRestore": false,
+    "kibanaSavedObjectMeta": {
+      "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[]}"
+    }
+  },
+  "references": [
+    {
+      "name": "panel_0",
+      "type": "visualization",
+      "id": "visualization-id-123"
+    }
+  ],
+  "migrationVersion": {
+    "dashboard": "7.3.0"
+  },
+  "coreMigrationVersion": "7.3.0",
+  "updated_at": "2019-09-09T17:16:43.789Z",
+  "version": "WzQ1LDFd",
+  "type": "dashboard",
+  "id": "my-dashboard-id"
+}

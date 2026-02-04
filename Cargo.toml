@@ -11,6 +11,7 @@ members = [
     "test-utils",
     "utils",
     "wasm-serve",
+    "fuzz-generator",
 ]
 
 [workspace.package]

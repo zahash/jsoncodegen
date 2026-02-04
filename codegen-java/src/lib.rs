@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet, BTreeMap};
 use std::io;
 
 use convert_case::{Case, Casing};
@@ -43,7 +42,6 @@ struct Union {
     vars: Vec<UnionMemberVar>,
 }
 
-#[derive(Clone)]
 struct UnionMemberVar {
     var_name: String,
     type_name: String,
@@ -60,8 +58,6 @@ impl From<serde_json::Value> for Java {
             },
         );
 
-        let java_names = build_java_names(&type_graph, &name_registry);
-
         let mut root = RootType::Extension("Object".into());
         let mut classes = vec![];
         let mut unions = vec![];
@@ -73,66 +69,55 @@ impl From<serde_json::Value> for Java {
                     root = RootType::Extension(derive_type_name(
                         type_graph.root,
                         &type_graph,
-                        &java_names,
+                        &name_registry,
                     ))
                 }
                 TypeDef::Array(inner_type_id) => {
                     root = RootType::Extension(format!(
                         "java.util.ArrayList<{}>",
-                        derive_type_name(*inner_type_id, &type_graph, &java_names)
+                        derive_type_name(*inner_type_id, &type_graph, &name_registry)
                     ))
                 }
                 _ => {
                     root = RootType::Wrapper(derive_type_name(
                         type_graph.root,
                         &type_graph,
-                        &java_names,
+                        &name_registry,
                     ))
                 }
             };
         }
 
-        // Use a sorted list of TypeIds for deterministic output
-        let mut type_ids: Vec<&TypeId> = type_graph.nodes.keys().collect();
-        type_ids.sort();
-
-        for type_id in type_ids {
-            let type_def = type_graph.nodes.get(type_id).unwrap();
-
+        // TODO: instead of iterating through type_graph.nodes
+        // and processing TypeDef::Object and TypeDef::Union,
+        // do a bfs traversal (starting from root type_id)
+        // of all TypeIds that are either
+        // TypeDef::Object or TypeDef::Union
+        // This way, the root struct will always be on top
+        // and determining the root type name is much simpler
+        //
+        // TODO: to avoid case-insensitive name clash with ROOT,
+        // try to inline the root type in the top level JsonCodeGen
+        for (type_id, type_def) in &type_graph.nodes {
             if let TypeDef::Object(object_fields) = type_def {
-                let class_name = java_names
-                    .get(type_id)
-                    .cloned()
+                let class_name = name_registry
+                    .assigned_name(*type_id)
+                    .map(|ident| ident.to_case(Case::Pascal))
                     .unwrap_or_else(|| format!("Type{}", type_id));
 
                 let mut vars: Vec<MemberVar> = Vec::with_capacity(object_fields.len());
-                let mut used_var_names = HashSet::new();
                 let mut needs_custom_serializer_deserializer = false;
-
                 for (idx, object_field) in object_fields.iter().enumerate() {
                     let original_name = object_field.name.clone();
                     if original_name.is_empty() {
                         needs_custom_serializer_deserializer = true;
                     }
                     let type_name =
-                        derive_type_name(object_field.type_id, &type_graph, &java_names);
-
-                    let camel_name = object_field.name.to_case(Case::Camel);
-                    let base_var_name = if is_java_identifier(&camel_name) {
-                        camel_name
-                    } else {
-                        format!("var{}", idx)
+                        derive_type_name(object_field.type_id, &type_graph, &name_registry);
+                    let var_name = match is_java_identifier(&object_field.name) {
+                        true => object_field.name.to_case(Case::Camel),
+                        false => format!("var{}", idx),
                     };
-
-                    // Dedup variable names
-                    let mut var_name = base_var_name.clone();
-                    let mut count = 2;
-                    while used_var_names.contains(&var_name) {
-                        var_name = format!("{}{}", base_var_name, count);
-                        count += 1;
-                    }
-                    used_var_names.insert(var_name.clone());
-
                     let getter_name = format!("get{}", var_name.to_case(Case::Pascal));
                     let setter_name = format!("set{}", var_name.to_case(Case::Pascal));
                     let annotate =
@@ -163,17 +148,15 @@ impl From<serde_json::Value> for Java {
             }
 
             if let TypeDef::Union(inner_type_ids) = type_def {
-                let class_name = java_names
-                    .get(type_id)
-                    .cloned()
+                let class_name = name_registry
+                    .assigned_name(*type_id)
+                    .map(|ident| ident.to_case(Case::Pascal))
                     .unwrap_or_else(|| format!("Type{}", type_id));
 
                 let mut vars: Vec<UnionMemberVar> = Vec::with_capacity(inner_type_ids.len());
-                let mut used_var_names = HashSet::new();
-
                 for inner_type_id in inner_type_ids {
-                    let type_name = derive_type_name(*inner_type_id, &type_graph, &java_names);
-                    let raw_var_name = match type_graph.nodes.get(inner_type_id) {
+                    let type_name = derive_type_name(*inner_type_id, &type_graph, &name_registry);
+                    let var_name = match type_graph.nodes.get(inner_type_id) {
                         Some(inner_type_def) => match inner_type_def {
                             TypeDef::String => "strVal".into(),
                             TypeDef::Integer => "intVal".into(),
@@ -181,34 +164,25 @@ impl From<serde_json::Value> for Java {
                             TypeDef::Boolean => "boolVal".into(),
                             TypeDef::Null => "nullVal".into(),
                             TypeDef::Unknown => "objVal".into(),
-                            TypeDef::Object(_) => java_names
-                                .get(inner_type_id)
-                                .map(|name| name.to_case(Case::Camel))
+                            TypeDef::Object(_) => name_registry
+                                .assigned_name(*inner_type_id)
+                                .map(|ident| ident.to_case(Case::Camel))
                                 .unwrap_or_else(|| format!("clazz{}", inner_type_id)),
-                            TypeDef::Union(_) => java_names
-                                .get(inner_type_id)
-                                .map(|name| name.to_case(Case::Camel))
+                            TypeDef::Union(_) => name_registry
+                                .assigned_name(*inner_type_id)
+                                .map(|ident| ident.to_case(Case::Camel))
                                 .unwrap_or_else(|| format!("union{}", inner_type_id)),
-                            TypeDef::Array(_) => format!("arr{}", inner_type_id),
-                            TypeDef::Optional(_) => format!("opt{}", inner_type_id),
+                            TypeDef::Array(_) => name_registry
+                                .assigned_name(*inner_type_id)
+                                .map(|ident| ident.to_case(Case::Camel))
+                                .unwrap_or_else(|| format!("arr{}", inner_type_id)),
+                            TypeDef::Optional(_) => name_registry
+                                .assigned_name(*inner_type_id)
+                                .map(|ident| ident.to_case(Case::Camel))
+                                .unwrap_or_else(|| format!("opt{}", inner_type_id)),
                         },
                         None => format!("variant{}", inner_type_id),
                     };
-
-                    let base_var_name = if is_java_identifier(&raw_var_name) {
-                        raw_var_name
-                    } else {
-                        format!("variant{}", inner_type_id)
-                    };
-
-                    // Dedup union variable names
-                    let mut var_name = base_var_name.clone();
-                    let mut count = 2;
-                    while used_var_names.contains(&var_name) {
-                        var_name = format!("{}{}", base_var_name, count);
-                        count += 1;
-                    }
-                    used_var_names.insert(var_name.clone());
 
                     vars.push(UnionMemberVar {
                         var_name,
@@ -231,43 +205,10 @@ impl From<serde_json::Value> for Java {
     }
 }
 
-fn build_java_names(type_graph: &TypeGraph, name_registry: &NameRegistry) -> HashMap<TypeId, String> {
-    let mut map = HashMap::new();
-    let mut used_names = HashSet::new();
-
-    let mut type_ids: Vec<&TypeId> = type_graph.nodes.keys().collect();
-    type_ids.sort();
-
-    for type_id in type_ids {
-        let type_def = type_graph.nodes.get(type_id).unwrap();
-        match type_def {
-            TypeDef::Object(_) | TypeDef::Union(_) => {
-                let base_name = name_registry
-                    .assigned_name(*type_id)
-                    .map(|ident| ident.to_case(Case::Pascal))
-                    .unwrap_or_else(|| format!("Type{}", type_id));
-
-                let mut name = base_name.clone();
-                let mut count = 2;
-                // Ensure name is unique
-                while used_names.contains(&name) {
-                    name = format!("{}{}", base_name, count);
-                    count += 1;
-                }
-
-                used_names.insert(name.clone());
-                map.insert(*type_id, name);
-            }
-            _ => {}
-        }
-    }
-    map
-}
-
 fn derive_type_name(
     type_id: TypeId,
     type_graph: &TypeGraph,
-    java_names: &HashMap<TypeId, String>,
+    name_registry: &NameRegistry,
 ) -> String {
     match type_graph.nodes.get(&type_id) {
         Some(type_def) => match type_def {
@@ -276,16 +217,16 @@ fn derive_type_name(
             TypeDef::Float => "Double".into(),
             TypeDef::Boolean => "Boolean".into(),
             TypeDef::Null | TypeDef::Unknown => "Object".into(),
-            TypeDef::Object(_) | TypeDef::Union(_) => java_names
-                .get(&type_id)
-                .cloned()
+            TypeDef::Object(_) | TypeDef::Union(_) => name_registry
+                .assigned_name(type_id)
+                .map(|ident| ident.to_case(Case::Pascal))
                 .unwrap_or_else(|| format!("Type{}", type_id)),
             TypeDef::Array(inner_type_id) => format!(
                 "{}[]",
-                derive_type_name(*inner_type_id, type_graph, java_names)
+                derive_type_name(*inner_type_id, type_graph, name_registry)
             ),
             TypeDef::Optional(inner_type_id) => {
-                derive_type_name(*inner_type_id, type_graph, java_names)
+                derive_type_name(*inner_type_id, type_graph, name_registry)
             }
         },
         None => format!("Unknown{}", type_id),
@@ -591,58 +532,41 @@ fn write(java: Java, out: &mut dyn io::Write) -> io::Result<()> {
         writeln!(out, "\t\t\t\t{} value = new {}();", union.name, union.name)?;
         writeln!(out, "\t\t\t\tswitch (parser.currentToken()) {{")?;
 
-        // Group variants by their expected JsonToken
-        let mut variants_by_token: BTreeMap<String, Vec<&UnionMemberVar>> = BTreeMap::new();
-
-        for union_var in &union.vars {
-            let token = match union_var.type_name.as_str() {
-                "String" => "VALUE_STRING",
-                "Long" => "VALUE_NUMBER_INT",
-                "Double" => "VALUE_NUMBER_FLOAT",
-                "Boolean" => "VALUE_TRUE", // Special handling needed for TRUE/FALSE
-                _ if union_var.type_name.ends_with("[]") => "START_ARRAY",
-                _ => "START_OBJECT",
-            };
-
-            if token == "VALUE_TRUE" {
-                variants_by_token.entry("VALUE_TRUE".to_string()).or_default().push(union_var);
-                variants_by_token.entry("VALUE_FALSE".to_string()).or_default().push(union_var);
-            } else {
-                variants_by_token.entry(token.to_string()).or_default().push(union_var);
-            }
-        }
-
         writeln!(out, "\t\t\t\tcase VALUE_NULL: break;")?;
-
-        for (token, vars) in variants_by_token {
-            writeln!(out, "\t\t\t\tcase {}:", token)?;
-
-            if vars.len() > 1 && (token == "START_OBJECT" || token == "START_ARRAY") {
-                // Ambiguous union: deserialize as tree and try mapping to each variant
-                writeln!(out, "\t\t\t\t\tJsonNode tree = parser.readValueAsTree();")?;
-                writeln!(out, "\t\t\t\t\tObjectMapper mapper = (ObjectMapper) parser.getCodec();")?;
-
-                for union_var in vars {
-                    writeln!(out, "\t\t\t\t\ttry {{")?;
-                    writeln!(out, "\t\t\t\t\t\tvalue.{} = mapper.treeToValue(tree, {}.class);", union_var.var_name, union_var.type_name)?;
-                    writeln!(out, "\t\t\t\t\t\tbreak;")?;
-                    writeln!(out, "\t\t\t\t\t}} catch (Exception e) {{}}")?;
-                }
-            } else {
-                if let Some(first_var) = vars.first() {
-                    let read_expr = match first_var.type_name.as_str() {
-                        "String" => "parser.readValueAs(String.class)",
-                        "Long" => "parser.readValueAs(Long.class)",
-                        "Double" => "parser.readValueAs(Double.class)",
-                        "Boolean" => "parser.readValueAs(Boolean.class)",
-                        _ => &format!("parser.readValueAs({}.class)", first_var.type_name),
-                    };
-                    writeln!(out, "\t\t\t\t\tvalue.{} = {};", first_var.var_name, read_expr)?;
-                }
-            }
-            writeln!(out, "\t\t\t\t\tbreak;")?;
+        for union_var in &union.vars {
+            match union_var.type_name.as_str() {
+                "String" => writeln!(
+                    out,
+                    "\t\t\t\tcase VALUE_STRING: value.{} = parser.readValueAs(String.class); break;",
+                    union_var.var_name
+                )?,
+                "Long" => writeln!(
+                    out,
+                    "\t\t\t\tcase VALUE_NUMBER_INT: value.{} = parser.readValueAs(Long.class); break;",
+                    union_var.var_name
+                )?,
+                "Double" => writeln!(
+                    out,
+                    "\t\t\t\tcase VALUE_NUMBER_FLOAT: value.{} = parser.readValueAs(Double.class); break;",
+                    union_var.var_name
+                )?,
+                "Boolean" => writeln!(
+                    out,
+                    "\t\t\t\tcase VALUE_TRUE: case VALUE_FALSE: value.{} = parser.readValueAs(Boolean.class); break;",
+                    union_var.var_name
+                )?,
+                _ if union_var.type_name.ends_with("[]") => writeln!(
+                    out,
+                    "\t\t\t\tcase START_ARRAY: value.{} = parser.readValueAs({}.class); break;",
+                    union_var.var_name, union_var.type_name
+                )?,
+                _ => writeln!(
+                    out,
+                    "\t\t\t\tcase START_OBJECT: value.{} = parser.readValueAs({}.class); break;",
+                    union_var.var_name, union_var.type_name
+                )?,
+            };
         }
-
         writeln!(
             out,
             "\t\t\t\tdefault: throw new IOException(\"Cannot deserialize {}\");",

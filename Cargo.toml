@@ -40,4 +40,8 @@ strip = true
 # sudo mount -o remount,size=10G /tmp     # resize /tmp to have 10G
 
 # cargo build -p jsoncodegen-cli --profile cli
-# cargo build -p jsoncodegen-java --profile wasm --target wasm32-wasip1
+# cargo build -p jsoncodegen-{lang} --profile wasm --target wasm32-wasip1
+
+# run JS polyfill tests
+# cargo run --bin wasm-serve target/wasm32-wasip1/wasm/*.wasm --port 7357
+# npm test

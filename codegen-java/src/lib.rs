@@ -63,7 +63,7 @@ impl From<serde_json::Value> for Java {
         let mut unions = vec![];
 
         // Determine root type
-        if let Some(type_def) = type_graph.nodes.get(&type_graph.root) {
+        if let Some(type_def) = type_graph.type_def(type_graph.root) {
             match type_def {
                 TypeDef::Object(_) => {
                     root = RootType::Extension(derive_type_name(
@@ -149,7 +149,7 @@ impl From<serde_json::Value> for Java {
                 let mut vars: Vec<UnionMemberVar> = Vec::with_capacity(inner_type_ids.len());
                 for inner_type_id in inner_type_ids {
                     let type_name = derive_type_name(*inner_type_id, &type_graph, &name_registry);
-                    let var_name = match type_graph.nodes.get(inner_type_id) {
+                    let var_name = match type_graph.type_def(*inner_type_id) {
                         Some(inner_type_def) => match inner_type_def {
                             TypeDef::String => "strVal".into(),
                             TypeDef::Integer => "intVal".into(),
@@ -203,7 +203,7 @@ fn derive_type_name(
     type_graph: &TypeGraph,
     name_registry: &NameRegistry,
 ) -> String {
-    match type_graph.nodes.get(&type_id) {
+    match type_graph.type_def(type_id) {
         Some(type_def) => match type_def {
             TypeDef::String => "String".into(),
             TypeDef::Integer => "Long".into(),

@@ -53,7 +53,7 @@ impl From<serde_json::Value> for Rust {
         let mut structs = vec![];
         let mut enums = vec![];
 
-        if let Some(type_def) = type_graph.nodes.get(&type_graph.root) {
+        if let Some(type_def) = type_graph.type_def(type_graph.root) {
             match type_def {
                 TypeDef::Object(_) => {
                     root = derive_type_name(
@@ -138,7 +138,7 @@ impl From<serde_json::Value> for Rust {
                         type_id,
                         &back_edges,
                     );
-                    let variant_name = match type_graph.nodes.get(inner_type_id) {
+                    let variant_name = match type_graph.type_def(*inner_type_id) {
                         Some(inner_type_def) => match inner_type_def {
                             TypeDef::String => "String".into(),
                             TypeDef::Integer => "Int".into(),
@@ -195,7 +195,7 @@ fn back_edges(type_graph: &TypeGraph) -> Vec<(TypeId, TypeId)> {
 
     while let Some(type_id) = frontier.pop() {
         path.push(type_id);
-        if let Some(type_def) = type_graph.nodes.get(&type_id) {
+        if let Some(type_def) = type_graph.type_def(type_id) {
             let adj_type_ids: Box<dyn Iterator<Item = usize>> = match type_def {
                 TypeDef::Object(object_fields) => Box::new(object_fields.iter().map(|f| f.type_id)),
                 TypeDef::Union(inner_type_ids) => Box::new(inner_type_ids.into_iter().copied()),
@@ -227,7 +227,7 @@ fn derive_type_name(
     parent_type_id: TypeId,
     back_edges: &[(TypeId, TypeId)],
 ) -> String {
-    match type_graph.nodes.get(&type_id) {
+    match type_graph.type_def(type_id) {
         Some(type_def) => match type_def {
             TypeDef::String => "String".into(),
             TypeDef::Integer => "isize".into(),

@@ -135,7 +135,7 @@ impl<'type_graph> NameCollector<'type_graph> {
         }
         self.visited.insert(type_id);
 
-        if let Some(type_def) = self.type_graph.nodes.get(&type_id) {
+        if let Some(type_def) = self.type_graph.type_def(type_id) {
             match type_def {
                 TypeDef::Object(object_fields) => {
                     for object_field in object_fields {
@@ -156,7 +156,7 @@ impl<'type_graph> NameCollector<'type_graph> {
     }
 
     fn process_object_field(&mut self, object_field: &'type_graph ObjectField) {
-        if let Some(object_field_type_def) = self.type_graph.nodes.get(&object_field.type_id) {
+        if let Some(object_field_type_def) = self.type_graph.type_def(object_field.type_id) {
             match object_field_type_def {
                 TypeDef::Object(nested_object_fields) => {
                     let names = self.names.entry(object_field.type_id).or_default();
@@ -193,7 +193,7 @@ impl<'type_graph> NameCollector<'type_graph> {
         let mut visited = vec![];
         while !visited.contains(&type_id) {
             visited.push(type_id);
-            if let Some(type_def) = self.type_graph.nodes.get(&type_id) {
+            if let Some(type_def) = self.type_graph.type_def(type_id) {
                 if let TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) = type_def {
                     type_id = *inner_type_id;
                 }

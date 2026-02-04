@@ -182,7 +182,7 @@ pub type TypeId = usize;
 #[derive(Debug, Clone)]
 pub struct TypeGraph {
     pub root: TypeId,
-    pub nodes: BTreeMap<TypeId, TypeDef>,
+    nodes: BTreeMap<TypeId, TypeDef>,
 }
 
 /// Type definition node. Mirrors FieldType but uses [`TypeId`] references.
@@ -225,6 +225,12 @@ impl From<Schema> for TypeGraph {
     }
 }
 
+impl TypeGraph {
+    pub fn type_def(&self, type_id: TypeId) -> Option<&TypeDef> {
+        self.nodes.get(&type_id)
+    }
+}
+
 pub struct TypeGraphIter<'type_graph> {
     type_graph: &'type_graph TypeGraph,
     frontier: VecDeque<TypeId>,
@@ -247,7 +253,7 @@ impl<'type_graph> Iterator for TypeGraphIter<'type_graph> {
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(type_id) = self.frontier.pop_front() {
             if self.visited.insert(type_id) {
-                if let Some(type_def) = self.type_graph.nodes.get(&type_id) {
+                if let Some(type_def) = self.type_graph.type_def(type_id) {
                     match type_def {
                         TypeDef::Object(object_fields) => self
                             .frontier
@@ -634,7 +640,7 @@ impl<'type_graph> CanonicalView<'type_graph> {
         }
         visited.insert(type_id);
 
-        if let Some(type_def) = self.type_graph.nodes.get(&type_id) {
+        if let Some(type_def) = self.type_graph.type_def(type_id) {
             match type_def {
                 TypeDef::String => write!(f, "str")?,
                 TypeDef::Integer => write!(f, "int")?,

@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeSet, VecDeque},
-    io,
-};
+use std::io;
 
 use convert_case::{Case, Casing};
 use jsoncodegen::{
@@ -94,28 +91,7 @@ impl From<serde_json::Value> for Java {
         // TODO: to avoid case-insensitive name clash with ROOT,
         // try to inline the root type in the top level JsonCodeGen
 
-        let mut queue = VecDeque::from([type_graph.root]);
-        let mut visited = BTreeSet::new();
-        while let Some(type_id) = queue.pop_front() {
-            if !visited.insert(type_id) {
-                continue;
-            }
-
-            let Some(type_def) = type_graph.nodes.get(&type_id) else {
-                continue;
-            };
-
-            match type_def {
-                TypeDef::Array(inner_id) | TypeDef::Optional(inner_id) => {
-                    queue.push_back(*inner_id)
-                }
-                TypeDef::Object(object_fields) => {
-                    queue.extend(object_fields.iter().map(|field| field.type_id))
-                }
-                TypeDef::Union(inner_ids) => queue.extend(inner_ids),
-                _ => { /* no-op */ }
-            }
-
+        for (type_id, type_def) in &type_graph {
             if let TypeDef::Object(object_fields) = type_def {
                 let class_name = name_registry
                     .assigned_name(type_id)

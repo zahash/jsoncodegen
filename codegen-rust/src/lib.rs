@@ -88,10 +88,10 @@ impl From<serde_json::Value> for Rust {
             };
         }
 
-        for (type_id, type_def) in &type_graph.nodes {
+        for (type_id, type_def) in &type_graph {
             if let TypeDef::Object(object_fields) = type_def {
                 let struct_name = name_registry
-                    .assigned_name(*type_id)
+                    .assigned_name(type_id)
                     .map(|ident| ident.to_case(Case::Pascal))
                     .unwrap_or_else(|| format!("Type{}", type_id));
 
@@ -102,7 +102,7 @@ impl From<serde_json::Value> for Rust {
                         object_field.type_id,
                         &type_graph,
                         &name_registry,
-                        *type_id,
+                        type_id,
                         &back_edges,
                     );
                     let var_name = match is_rust_identifier(&object_field.name) {
@@ -125,7 +125,7 @@ impl From<serde_json::Value> for Rust {
 
             if let TypeDef::Union(inner_type_ids) = type_def {
                 let enum_name = name_registry
-                    .assigned_name(*type_id)
+                    .assigned_name(type_id)
                     .map(|ident| ident.to_case(Case::Pascal))
                     .unwrap_or_else(|| format!("Type{}", type_id));
 
@@ -135,7 +135,7 @@ impl From<serde_json::Value> for Rust {
                         *inner_type_id,
                         &type_graph,
                         &name_registry,
-                        *type_id,
+                        type_id,
                         &back_edges,
                     );
                     let variant_name = match type_graph.nodes.get(inner_type_id) {

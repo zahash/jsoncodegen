@@ -158,7 +158,7 @@
 //!   - Compact representation of potentially infinite linked list structure
 //! ```
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     fmt::Display,
 };
 
@@ -219,6 +219,56 @@ impl From<Schema> for TypeGraph {
         let type_graph: TypeGraph = GraphBuilder::build(schema);
         let reduced_type_graph: TypeGraph = TypeReducer::reduce(type_graph);
         reduced_type_graph
+    }
+}
+
+pub struct TypeGraphIter<'type_graph> {
+    type_graph: &'type_graph TypeGraph,
+    frontier: VecDeque<TypeId>,
+    visited: BTreeSet<TypeId>,
+}
+
+impl<'type_graph> TypeGraphIter<'type_graph> {
+    fn new(type_graph: &'type_graph TypeGraph) -> Self {
+        Self {
+            type_graph,
+            frontier: VecDeque::from([type_graph.root]),
+            visited: BTreeSet::new(),
+        }
+    }
+}
+
+impl<'type_graph> Iterator for TypeGraphIter<'type_graph> {
+    type Item = (TypeId, &'type_graph TypeDef);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(type_id) = self.frontier.pop_front()
+            && self.visited.insert(type_id)
+            && let Some(type_def) = self.type_graph.nodes.get(&type_id)
+        {
+            match type_def {
+                TypeDef::Object(object_fields) => self
+                    .frontier
+                    .extend(object_fields.iter().map(|field| field.type_id)),
+                TypeDef::Array(inner_type_id) | TypeDef::Optional(inner_type_id) => {
+                    self.frontier.push_back(*inner_type_id)
+                }
+                TypeDef::Union(inner_type_ids) => self.frontier.extend(inner_type_ids),
+                _ => { /* no-op */ }
+            };
+            return Some((type_id, type_def));
+        }
+
+        None
+    }
+}
+
+impl<'type_graph> IntoIterator for &'type_graph TypeGraph {
+    type Item = (TypeId, &'type_graph TypeDef);
+    type IntoIter = TypeGraphIter<'type_graph>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        TypeGraphIter::new(self)
     }
 }
 

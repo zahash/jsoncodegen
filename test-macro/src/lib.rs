@@ -1,110 +1,80 @@
+use glob::glob;
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use std::env;
-use std::fs;
-use std::path::Path;
-use syn::{Error, LitStr, Result, parse_macro_input};
+use std::path::PathBuf;
+use syn::{ItemFn, LitStr, Token, parse_macro_input, punctuated::Punctuated};
 
-#[proc_macro]
-pub fn generate_tests(input: TokenStream) -> TokenStream {
-    // Parse the input tokens into a String Literal
-    // If this fails, `parse_macro_input!` automatically emits a compile error and returns.
-    let input_dir = parse_macro_input!(input as LitStr);
+struct FixtureArgs {
+    globs: Punctuated<LitStr, Token![,]>,
+}
 
-    // Call the implementation and handle any Results
-    match generate_tests_impl(input_dir) {
-        Ok(tokens) => tokens.into(),
-        Err(err) => err.to_compile_error().into(),
+impl syn::parse::Parse for FixtureArgs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(FixtureArgs {
+            globs: Punctuated::parse_terminated(input)?,
+        })
     }
 }
 
-fn generate_tests_impl(dir_literal: LitStr) -> Result<proc_macro2::TokenStream> {
-    let dir_str = dir_literal.value();
+#[proc_macro_attribute]
+pub fn fixture(args: TokenStream, input: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(args as FixtureArgs);
+    let input_fn = parse_macro_input!(input as ItemFn);
+    let fn_name = &input_fn.sig.ident;
 
-    // 1. Resolve the path relative to the crate root safely
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").map_err(|_| {
-        Error::new(
-            dir_literal.span(),
-            "Failed to read CARGO_MANIFEST_DIR env variable",
-        )
-    })?;
+    let base_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let mut tests = Vec::new();
 
-    let test_data_path = Path::new(&manifest_dir)
-        .parent()
-        .ok_or_else(|| {
-            Error::new(
-                dir_literal.span(),
-                "Failed to get parent directory of CARGO_MANIFEST_DIR",
-            )
-        })?
-        .join(&dir_str);
-
-    // 2. Validate directory existence
-    if !test_data_path.exists() {
-        return Err(Error::new(
-            dir_literal.span(),
-            format!(
-                "Test data directory does not exist: {}",
-                test_data_path.display()
-            ),
+    for glob_lit in &args.globs {
+        let absolute_glob_path = base_path.join(glob_lit.value());
+        let absolute_glob_str = absolute_glob_path.to_str().expect(&format!(
+            "non-utf8 absolute glob path :: {}",
+            absolute_glob_path.display()
         ));
-    }
 
-    let mut test_fns = Vec::new();
+        let paths = glob(absolute_glob_str).expect("Failed to read glob pattern");
+        for entry in paths {
+            let path = entry.expect("Failed to read glob entry");
+            if path.is_file() {
+                // Generate a unique test name
+                // e.g. tests/data/user.json -> tests_data_user_json
+                let safe_name = path
+                    .strip_prefix(&base_path)
+                    .unwrap_or_else(|_| &path)
+                    .to_string_lossy()
+                    .replace(|c: char| !c.is_alphanumeric(), "_")
+                    .to_lowercase();
+                let test_name = format_ident!("{}", safe_name);
+                let path_str = path
+                    .to_str()
+                    .expect(&format!("non-utf8 glob path :: {}", path.display()));
 
-    // 3. Read directory safely
-    let entries = fs::read_dir(&test_data_path).map_err(|e| {
-        Error::new(
-            dir_literal.span(),
-            format!("Failed to read directory: {}", e),
-        )
-    })?;
+                tests.push(quote! {
+                    #[tokio::test]
+                    async fn #test_name() {
+                        // Recompile if this specific file changes
+                        const _: &[u8] = include_bytes!(#path_str);
 
-    for entry in entries {
-        // Handle read errors for individual entries
-        let entry = entry
-            .map_err(|e| Error::new(dir_literal.span(), format!("Failed to read entry: {}", e)))?;
-        let path = entry.path();
-
-        if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
-            // Safe filename extraction
-            let stem = path
-                .file_stem()
-                .ok_or_else(|| Error::new(dir_literal.span(), "Failed to extract file stem"))?
-                .to_str()
-                .ok_or_else(|| Error::new(dir_literal.span(), "Filename contains invalid UTF-8"))?;
-
-            // Create a valid Rust identifier (e.g., "user-data" -> "test_user_data")
-            let safe_name = stem.replace(|c: char| !c.is_alphanumeric(), "_");
-            let fn_name = syn::Ident::new(
-                &format!("test_{}", safe_name),
-                proc_macro2::Span::call_site(),
-            );
-
-            // Safe path conversion for the generated string
-            let path_str = path
-                .to_str()
-                .ok_or_else(|| Error::new(dir_literal.span(), "Path contains invalid UTF-8"))?;
-
-            // 4. Generate the test function
-            test_fns.push(quote! {
-                #[tokio::test]
-                async fn #fn_name() {
-                    run_test(std::path::Path::new(#path_str)).await;
-                }
-            });
+                        let path = std::path::PathBuf::from(#path_str);
+                        #fn_name(path).await;
+                    }
+                });
+            }
         }
     }
 
-    if test_fns.is_empty() {
-        // Optional warning if no JSON files were found
-        return Err(Error::new(
-            dir_literal.span(),
-            "No JSON files found in the specified directory",
-        ));
+    if tests.is_empty() {
+        return syn::Error::new_spanned(
+            &args.globs,
+            "No files found matching the provided glob patterns",
+        )
+        .to_compile_error()
+        .into();
     }
 
-    Ok(quote! {
-        #(#test_fns)*
+    TokenStream::from(quote! {
+        #(#tests)*
+        #input_fn
     })
 }

@@ -173,9 +173,6 @@ use crate::{
 /// Type identifier for referencing types within the graph.
 pub type TypeId = usize;
 
-// TODO: make root and nodes private in type_graph and have methods
-// like .root() and .get_type_def(type_id) instead
-
 /// Type graph: root [`TypeId`] + map of [`TypeId`] to [`TypeDef`].
 ///
 /// Types reference each other via TypeId, enabling recursive structures.
